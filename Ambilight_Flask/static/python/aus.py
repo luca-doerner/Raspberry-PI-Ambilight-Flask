@@ -3,7 +3,7 @@ import neopixel
 import json
 
 # LED configuration
-with open("config.json", "r") as file:
+with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
     data = json.load(file)
 
 LED_COUNT_LEFT = data["count_left"]

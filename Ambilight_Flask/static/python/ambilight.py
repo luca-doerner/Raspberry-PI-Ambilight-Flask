@@ -9,7 +9,7 @@ import json
 
 
 # LED configuration
-with open("config.json", "r") as file:
+with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
     data = json.load(file)
 
 LED_COUNT_LEFT = data["count_left"]
@@ -27,7 +27,7 @@ WAIT = 0.0016
 def update_variables():
     while True:
         try:
-            with open("config.json", "r") as file:
+            with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
                 data = json.load(file)
 
             global LED_COUNT_LEFT, LED_COUNT_TOP, LED_COUNT_RIGHT, LED_COUNT_BOTTOM, LED_COUNT, LED_BRIGHTNESS, LED_OFFSET
