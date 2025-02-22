@@ -1,0 +1,14 @@
+#startPage {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);  /* 3 equal columns */
+    grid-template-rows: auto;  /* Adjust row height based on content */
+    gap: 15px;
+}
+
+.startPageItem {
+    color: black;
+    padding: 10px;
+    text-align: center;
+    border-color: black;
+    border-radius: 8px;
+}

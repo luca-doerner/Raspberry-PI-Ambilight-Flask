@@ -1,0 +1,11 @@
+- name: Deploy Application
+  hosts: raspberrypi
+  become: yes
+  tasks:
+    - name: Deploy Application
+      copy:
+        src: ../Ambilight_Flask
+        dest: /home/luca/
+        owner: luca
+        group: luca
+      

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Luca seine LEDs</title>
+    <script src="{{ url_for('static', filename='javascript/home.js') }}" async></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+</head>
+<body>
+    <div id="loadingPage" display="none">
+        <h1>Loading...</h1>
+    </div>
+    <div id="startPage">
+        <div class="startPageItem">Power</div>
+        <div class="startPageItem">
+            <input type="checkbox" name="powerSwitch" id="powerSwitch">
+        </div>
+        <div class="startPageItem" id="powerStatus"></div>
+
+        <div class="startPageItem">Modus</div>
+        <div class="startPageItem">
+            <select name="modeSelection" id="modeSelection">
+                <option value="ambilight" id="ambilightSelect">Ambilight</option>
+                <option value="staticColor" id="staticColorSelect">Static Color</option>
+            </select>
+        </div>
+        <div class="startPageItem">
+            <button id="changeModeButton">Ändern</button>
+        </div>
+    </div>
+    <div id="contentPage" width="100%" height="500px"></div>
+</body>
+</html>
