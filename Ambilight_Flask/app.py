@@ -1,12 +1,16 @@
 from flask import Flask, render_template, Response, jsonify, request
 from appConfig import Config
 import json
+import subprocess
 
 app = Flask(__name__)
 app.config.from_object(Config)
 PORT = app.config["PORT"]
 DEBUG = app.config["DEBUG"]
+HOST = app.config["HOST"]
 
+
+############## HTML ###################################################################
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -23,6 +27,12 @@ def staticColor():
 def loading():
     return render_template("loading.html")
 
+@app.route("/error")
+def error():
+    return render_template("error.html")
+
+
+############## Config #################################################################
 @app.route("/get-config", methods=["GET"])
 def getConfig():
     try:
@@ -50,9 +60,42 @@ def setConfig():
         return jsonify({"message": "Data updated successfully!"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+############## Python control ##########################################################
+def power(startscript, stopscript, new_power):
+    try:
+        subprocess.run(["bash", "static/sh/" + stopscript], text=True, check=True)
+
+        if(new_power["power"] == "on"):
+            start = subprocess.run(["bash", "static/sh/" + startscript], capture_output=True, text=True)
+            if "Done:" not in start:
+                raise Exception(start)
+
+
+        return jsonify({"message": "Successfully started python script!"}), 200
+    except Exception as e:
+        return jsonify({"error": "Error while starting Python script!", "details": str(e)}), 300
+
+@app.route("/power/ambilight", methods=["POST"])
+def power_ambilight():
+    new_power = request.json
+
+    return power("startAmbilight.sh", "stopAmbilight.sh", new_power)
+
+
+@app.route("/power/staticColor", methods=["POST"])
+def power_staticColor():
+    start = "moin"
+    try:
+        raise Exception("moin")
+
+        return jsonify({"message": "Successfully started python script!"}), 200
+    except Exception as e:
+        return jsonify({"error": "Moin while starting Python script!", "details": str(start)}), 300
 
 if __name__ == "__main__":
     app.run(
         debug=DEBUG,
-        port=PORT
+        port=PORT,
+        host=HOST
         )

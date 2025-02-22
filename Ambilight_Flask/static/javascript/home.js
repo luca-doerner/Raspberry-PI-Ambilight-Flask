@@ -1,5 +1,6 @@
 let loadingPage = document.getElementById("loadingPage")
 let startPage = document.getElementById("startPage")
+let contentPage = document.getElementById("contentPage")
 
 let changeModeButton = document.getElementById("changeModeButton")
 let modeSelection = document.getElementById("modeSelection")
@@ -9,40 +10,121 @@ let mode, power
 
 
 //////////////////////// Fetch Functions ///////////////////////////////////////////////////////////
-function loadPage(page){
-    fetch(page)
-        .then(response => response.text())
-        .then(html => document.getElementById("contentPage").innerHTML = html)
-        .catch(error => console.log("Error while loading: " + error))
+async function loadPage(page){
+    return new Promise((resolve, reject) => {
+        let timeoutReached = false;
+
+        // Set a timeout to trigger after 3 seconds
+        const timeout = setTimeout(() => {
+            timeoutReached = true; // Mark timeout flag as true
+            console.log("Loading the config took too long, which is unusual.");
+            resolve(); // Resolve the promise even after timeout
+        }, 3000);
+        
+        fetch(page)
+            .then(response => response.text())
+            .then(html => {
+                contentPage.innerHTML = html
+                clearTimeout(timeout)
+                resolve()
+            })
+            .catch(error => {
+                console.log("Error while loading: " + error)
+                if(!timeoutReached){
+                    clearTimeout(timeout)
+                    reject(error)
+                }
+            })
+    })
 }
 
-function loadConfig(){
+async function loadConfig(){
     return new Promise((resolve, reject) => {
+        let timeoutReached = false;
+
+        // Set a timeout to trigger after 3 seconds
+        const timeout = setTimeout(() => {
+            timeoutReached = true; // Mark timeout flag as true
+            console.log("Loading the config took too long, which is unusual.");
+            resolve(); // Resolve the promise even after timeout
+        }, 3000);
+
         fetch("/get-config")
             .then(response => response.json())
             .then(config => {
                 mode = config.mode
                 power = config.power
+                console.log("Succesfully loaded Config!")
+                clearTimeout(timeout)
+                resolve()
             })
-            .catch(error => console.log("Error while loading: " + error))
-        setTimeout(() => {
-            console.log("Config Loaded");
-            resolve()
-        }, 2000)
+            .catch(error => {
+                console.log("Error while loading: " + error)
+                if(!timeoutReached){
+                    clearTimeout(timeout)
+                    reject(error)
+                }
+            })
     })
 }
 
-function updateConfig(jsonBody){
-    fetch("/set-config", {
+async function updateConfig(jsonBody){
+    return new Promise((resolve, reject) => {
+        let timeoutReached = false;
+
+        // Set a timeout to trigger after 3 seconds
+        const timeout = setTimeout(() => {
+            timeoutReached = true; // Mark timeout flag as true
+            console.log("Loading the config took too long, which is unusual.");
+            resolve(); // Resolve the promise even after timeout
+        }, 3000);
+
+        fetch("/set-config", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(jsonBody)
+        })
+            .then(response => {
+                if(response.status != 200){
+                    throw new Error(response.json())
+                }
+                return response.json()
+            })
+            .then(data => {
+                console.log("Success: " + data.message)
+                clearTimeout(timeout)
+                resolve()
+            })
+            .catch(error => {
+                console.log("Error while updating config: " + error.error)
+                if(!timeoutReached){
+                    clearTimeout(timeout)
+                    reject(error)
+                }
+            })
+    })
+}
+
+async function updatePython(type, jsonBody){
+    fetch("/power/" + type, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify(jsonBody)
     })
-        .then(response => response.json())
-        .then(data => console.log("Success: " + data))
-        .catch(error => console.log("Error while updating config: " + error))
+        .then(response => {
+            if(response.status != 200){
+                return response.json().then(errData => {
+                    throw new Error(`Error: ${errData.error}, Details: ${errData.details}`)
+                })
+            }
+            return response.json()
+        })
+        .then(data => console.log(data.message))
+        .catch(error => console.log(error.message))
 }
 
 
@@ -56,6 +138,25 @@ function showLoading(){
 function showPage(){
     loadingPage.style.display = "none"
     startPage.style.display = "grid"
+}
+
+async function loadScript(){
+    let jsonBody
+
+    if(powerSwitch.checked){
+        jsonBody = {
+            "power": "on"
+        }
+    } else{
+        jsonBody = {
+            "power": "off"
+        }
+    }
+
+    await updateConfig(jsonBody)
+    await loadConfig()
+
+    updatePython(mode, jsonBody)
 }
 
 //////////////////////// Document Functions /////////////////////////////////////////////////////////
@@ -72,7 +173,7 @@ window.onload = async () => {
     loadPage("/" + mode)
 }
 
-changeModeButton.addEventListener("click", () => {
+changeModeButton.addEventListener("click", async () => {
     modeSelection.style.color = "black"
 
     let selectedMode = modeSelection.value
@@ -81,7 +182,10 @@ changeModeButton.addEventListener("click", () => {
         "mode": selectedMode
     }
 
-    updateConfig(jsonBody)
+    await updateConfig(jsonBody)
+    await loadConfig()
+
+    await loadScript()
 
     loadPage("/" + selectedMode)
 })
@@ -97,18 +201,6 @@ modeSelection.addEventListener("change", () => {
     }
 })
 
-powerSwitch.addEventListener("change", () => {
-    let jsonBody
-
-    if(powerSwitch.checked){
-        jsonBody = {
-            "power": "on"
-        }
-    } else{
-        jsonBody = {
-            "power": "off"
-        }
-    }
-
-    updateConfig(jsonBody)
+powerSwitch.addEventListener("change", async () => {
+    await loadScript()
 })
