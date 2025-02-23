@@ -7,11 +7,10 @@
 
 #settings
 PYTHON_FILE=app.py
-NOHUP_OUT=${BASE_PATH}/Ambilight_Flask/logs/flask-nohup.out
-VENV=${BASE_PATH}/venv/bin/activate
+NOHUP_OUT=$FLASK_BASE_PATH/Ambilight_Flask/logs/flask-nohup.out
+VENV=$FLASK_BASE_PATH/venv/bin/activate
 
-# go to ambilight.py directory
-cd ../python
+export FLASK_BASE_PATH=$FLASK_BASE_PATH
 
 # option variables
 FOREGROUND=false

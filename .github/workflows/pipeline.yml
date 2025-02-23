@@ -10,7 +10,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      BASE_PATH: ${{ vars.BASE_PATH }}
+      FLASK_BASE_PATH: ${{ vars.FLASK_BASE_PATH }}
 
     steps:
       - name: Checkout Repository
