@@ -5,6 +5,7 @@
     - name: Set environment variable
       lineinfile:
         path: /etc/environment
+        regexp: '^FLASK_BASE_PATH='
         line: "FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
     - name: zeich mal her
       shell:
