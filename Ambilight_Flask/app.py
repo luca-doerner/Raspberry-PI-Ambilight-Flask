@@ -67,9 +67,17 @@ def power(startscript, stopscript, new_power):
         subprocess.run(["bash", "static/sh/" + stopscript], text=True, check=True)
 
         if(new_power["power"] == "on"):
-            start = subprocess.run(["bash", "static/sh/" + startscript], capture_output=True, text=True)
-            if "Done:" not in start:
-                raise Exception(start)
+            process = subprocess.Popen(
+                ["bash", "static/sh/" + startscript],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            process.wait()  # Wait for the process to complete
+
+            if "Done:" not in process.stdout:
+                raise Exception(process.stdout.read())
 
 
         return jsonify({"message": "Successfully started python script!"}), 200
