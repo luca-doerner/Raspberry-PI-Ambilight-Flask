@@ -67,6 +67,7 @@ def power(startscript, stopscript, new_power):
         subprocess.run(["bash", "static/sh/" + stopscript], text=True, check=True)
 
         if(new_power["power"] == "on"):
+            stdout = ""
             process = subprocess.Popen(
                 ["bash", "static/sh/" + startscript],
                 stdout=subprocess.PIPE,
@@ -76,11 +77,10 @@ def power(startscript, stopscript, new_power):
 
             # Read and print output in real-time
             for line in process.stdout:
+                stdout += line.strip()
                 print(line.strip())  # Show live output
 
             process.wait()  # Wait for the process to complete
-
-            stdout = process.stdout.read()
 
             if "Done:" not in stdout:
                 raise Exception(stdout)

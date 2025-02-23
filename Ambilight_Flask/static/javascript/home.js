@@ -170,6 +170,8 @@ window.onload = async () => {
     modeSelection.value = mode
     powerSwitch.checked = power == "on" ? true : false
 
+    await loadScript()
+
     loadPage("/" + mode)
 }
 
@@ -182,9 +184,10 @@ changeModeButton.addEventListener("click", async () => {
         "mode": selectedMode
     }
 
+    powerSwitch.checked = false
+
     await updateConfig(jsonBody)
     await loadConfig()
-
     await loadScript()
 
     loadPage("/" + selectedMode)

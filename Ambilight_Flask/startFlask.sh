@@ -57,12 +57,12 @@ else
         echo "Waiting for Ambilight to start (timeout in 60 seconds)..."
         sleep 2
         PID=$(pgrep -f $PYTHON_FILE)
-        STARTED=$(grep "Started.*" ${NOHUP_OUT})
-        SHUTDOWN=$(grep "Fehler: HDMI-Capture-Device 1 nicht gefunden" ${NOHUP_OUT})
+        STARTED=$(grep "Debugger PIN:.*" ${NOHUP_OUT})
+        SHUTDOWN=$(grep ".*Error.*" ${NOHUP_OUT})
         i=0
         while [[ -z $STARTED && -z $SHUTDOWN && ${i} -lt 19 ]]
         do
-            echo "Waiting for Ambilight to start (timeout in $((60-3*(i+1))) seconds)..."
+            echo "Waiting for Flask to start (timeout in $((60-3*(i+1))) seconds)..."
             sleep 3
             STARTED=$(grep "Started.*" ${NOHUP_OUT})
             SHUTDOWN=$(grep 'Shutdown completed\|Application run failed' ${NOHUP_OUT})
