@@ -1,9 +1,12 @@
 import board
 import neopixel
 import json
+import os
+
+BASE_PATH = os.getenv("BASE_PATH")
 
 # LED configuration
-with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
+with open(BASE_PATH + "/Ambilight_Flask/static/config.json", "r") as file:
     nested_data = json.load(file)
 
 data = nested_data["Ambilight"]

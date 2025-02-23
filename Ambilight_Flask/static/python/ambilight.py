@@ -5,11 +5,13 @@ import time
 import numpy as np
 import cv2
 import json
+import os
 
 
+BASE_PATH = os.getenv("BASE_PATH")
 
 # LED configuration
-with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
+with open(BASE_PATH + "/Ambilight_Flask/static/config.json", "r") as file:
     nested_data = json.load(file)
 
 data = nested_data["Ambilight"]
@@ -199,23 +201,23 @@ if __name__ == "__main__":
     p_dominant_colors = mp.Process(target=get_dominant_color, args=(q_screen, q_colors))
     p_calc_color_arr = mp.Process(target=calc_color_arr, args=(q_colors, q_new_colors))
     p_smooth_colors = mp.Process(target=get_smooth_color, args=(q_new_colors,))
-    p_update_variables = mp.Process(target=update_variables)
+#    p_update_variables = mp.Process(target=update_variables)
 
     # start of process
     p_get_screen.start()
     p_dominant_colors.start()
     p_calc_color_arr.start()
     p_smooth_colors.start()
-    p_update_variables.start()
+#    p_update_variables.start()
 
-    print("Started Update Variables with PID {p_update_variables.pid}")
+#    print("Started Update Variables with PID {p_update_variables.pid}")
     print("Started Get Screen with PID {p_get_screen.pid}")
     print("Started Get Dominant Colors with PID {p_dominant_colors.pid}")
     print("Started Calculate Color Array with PID {p_calc_color_arr.pid}")
     print("Started Smooth Colors with PID {p_smooth_colors.pid}")
 
     # order in which processes get started
-    p_update_variables.join()
+#    p_update_variables.join()
     p_get_screen.join()
     p_dominant_colors.join()
     p_calc_color_arr.join()

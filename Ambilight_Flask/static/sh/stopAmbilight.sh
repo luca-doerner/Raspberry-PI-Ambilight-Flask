@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #settings
-FILE_NAME="ambilight.py"
+FILE_NAME="${BASE_PATH}/Ambilight_Flask/static/python/ambilight.py"
 PATTERN="${FILE_NAME}"
-AUS="aus.py"
+AUS="${BASE_PATH}/Ambilight_Flask/static/python/aus.py"
 PID=$(pgrep -f -d ',' ${PATTERN})
 COUNT=$(pgrep -fc ${PATTERN})
-VENV=/home/luca/venv/bin/activate
+VENV="${BASE_PATH}/venv/bin/activate"
 
 COLORS=true
 

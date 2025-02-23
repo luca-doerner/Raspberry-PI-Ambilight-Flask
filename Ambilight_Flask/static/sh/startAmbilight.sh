@@ -7,11 +7,8 @@
 
 #settings
 PYTHON_FILE=ambilight.py
-NOHUP_OUT=/home/luca/Ambilight_Flask/logs/ambilight-nohup.out
-VENV=/home/luca/venv/bin/activate
-
-# go to ambilight.py directory
-cd ../python || exit
+NOHUP_OUT=${BASE_PATH}/Ambilight_Flask/logs/ambilight-nohup.out
+VENV=${BASE_PATH}/venv/bin/activate
 
 # option variables
 FOREGROUND=false
