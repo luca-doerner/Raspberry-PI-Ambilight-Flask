@@ -6,6 +6,7 @@
       lineinfile:
         path: /etc/environment
         line: "FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
+    - name: zeich mal her
       shell:
         cmd: echo {{ lookup('env', 'FLASK_BASE_PATH') }}
     - name: Deploy Application
