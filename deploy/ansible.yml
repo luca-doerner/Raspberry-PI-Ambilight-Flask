@@ -14,9 +14,9 @@
 #        create: yes
     - name: Setze FLASK_BASE_PATH in venv/bin/activate
       lineinfile:
-        path: "{{ lookup('env', 'FLASK_BASE_PATH') }}/venv/bin/activate"  # Passe den Pfad deines venv an
+        path: "{{ lookup('env', 'FLASK_BASE_PATH') }}/venv/bin/activate"
+        regexp: '^export FLASK_BASE_PATH='
         line: "export FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
-        create: yes
     - name: Deploy Application
       copy:
         src: ../Ambilight_Flask
