@@ -6,11 +6,9 @@
     # -c to supress colored output
 
 #settings
-PYTHON_FILE=app.py
+PYTHON_FILE=$FLASK_BASE_PATH/Ambilight_Flask/app.py
 NOHUP_OUT=$FLASK_BASE_PATH/Ambilight_Flask/logs/flask-nohup.out
 VENV=$FLASK_BASE_PATH/venv/bin/activate
-
-export FLASK_BASE_PATH=$FLASK_BASE_PATH
 
 # option variables
 FOREGROUND=false

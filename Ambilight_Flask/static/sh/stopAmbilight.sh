@@ -1,16 +1,14 @@
 #!/bin/bash
 
 #settings
-FILE_NAME="${FLASK_BASE_PATH}/Ambilight_Flask/static/python/ambilight.py"
-PATTERN="${FILE_NAME}"
+FILE_NAME="ambilight.py"
+PATTERN="${FLASK_BASE_PATH}/Ambilight_Flask/static/python/${FILE_NAME}"
 AUS="${FLASK_BASE_PATH}/Ambilight_Flask/static/python/aus.py"
 PID=$(pgrep -f -d ',' ${PATTERN})
 COUNT=$(pgrep -fc ${PATTERN})
 VENV="${FLASK_BASE_PATH}/venv/bin/activate"
 
 COLORS=true
-
-export FLASK_BASE_PATH=$FLASK_BASE_PATH
 
 #echo function to stderr
 echoerr() { echo -e "$@" 1>&2; }
