@@ -9,8 +9,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      FLASK_BASE_PATH: ${{ vars.FLASK_BASE_PATH }}
 
     steps:
       - name: Checkout Repository
@@ -25,6 +23,7 @@ jobs:
           SSH_USER: ${{ vars.SSH_USER }}
           SERVER_IP: ${{ vars.SERVER_IP }}
           ANSIBLE_HOST_KEY_CHECKING: "False"
+          FLASK_BASE_PATH: ${{ vars.FLASK_BASE_PATH }}
         run: |
           echo "User: $SSH_USER, IP: $SERVER_IP"
-          ansible-playbook -i deploy/inventory.ini deploy/ansible.yml --extra-vars "ansible_ssh_pass=$SSH_PASSWORD ansible_host=$SERVER_IP ansible_user=$SSH_USER"
+          ansible-playbook -i deploy/inventory.ini deploy/ansible.yml --extra-vars "ansible_ssh_pass=$SSH_PASSWORD ansible_host=$SERVER_IP ansible_user=$SSH_USER flask_base_path=$FLASK_BASE_PATH"
