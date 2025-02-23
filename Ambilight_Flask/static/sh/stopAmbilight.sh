@@ -3,16 +3,12 @@
 #settings
 FILE_NAME="ambilight.py"
 PATTERN="${FILE_NAME}"
-AUS="Ambilight_Flask/static/python/aus.py"
+AUS="aus.py"
 PID=$(pgrep -f -d ',' ${PATTERN})
 COUNT=$(pgrep -fc ${PATTERN})
-VENV=/home/luca/Ambilight_Flask/venv/bin/activate
+VENV=/home/luca/venv/bin/activate
 
 COLORS=true
-
-# go to ambilight.py directory
-cd ..
-cd python
 
 #echo function to stderr
 echoerr() { echo -e "$@" 1>&2; }

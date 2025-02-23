@@ -10,7 +10,9 @@ import json
 
 # LED configuration
 with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
-    data = json.load(file)
+    nested_data = json.load(file)
+
+data = nested_data["Ambilight"]
 
 LED_COUNT_LEFT = data["count_left"]
 LED_COUNT_TOP = data["count_top"]
@@ -24,24 +26,25 @@ PIN = board.D18
 WAIT = 0.0016
 
 #Always update LED configuratiosn from JSON
-def update_variables():
-    while True:
-        try:
-            with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
-                data = json.load(file)
-
-            global LED_COUNT_LEFT, LED_COUNT_TOP, LED_COUNT_RIGHT, LED_COUNT_BOTTOM, LED_COUNT, LED_BRIGHTNESS, LED_OFFSET
-            LED_COUNT_LEFT = data["count_left"]
-            LED_COUNT_TOP = data["count_top"]
-            LED_COUNT_RIGHT = data["count_right"]
-            LED_COUNT_BOTTOM = data["count_bottom"]
-            LED_COUNT = LED_COUNT_BOTTOM + LED_COUNT_RIGHT + LED_COUNT_TOP + LED_COUNT_LEFT
-            LED_BRIGHTNESS = data["brightness"]
-            LED_OFFSET = data["offset"]
-        except KeyboardInterrupt:
-            pixels.fill((0,0,0))
-            pixels.show()
-            exit()
+#def update_variables():
+#    while True:
+#        try:
+#            with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
+#                data = json.load(file)["Ambilight"]
+#
+#
+#            global LED_COUNT_LEFT, LED_COUNT_TOP, LED_COUNT_RIGHT, LED_COUNT_BOTTOM, LED_COUNT, LED_BRIGHTNESS, LED_OFFSET
+#            LED_COUNT_LEFT = data["count_left"]
+#            LED_COUNT_TOP = data["count_top"]
+#            LED_COUNT_RIGHT = data["count_right"]
+#            LED_COUNT_BOTTOM = data["count_bottom"]
+#            LED_COUNT = LED_COUNT_BOTTOM + LED_COUNT_RIGHT + LED_COUNT_TOP + LED_COUNT_LEFT
+#            LED_BRIGHTNESS = data["brightness"]
+#            LED_OFFSET = data["offset"]
+#        except KeyboardInterrupt:
+#            pixels.fill((0,0,0))
+#            pixels.show()
+#            exit()
 
 
 

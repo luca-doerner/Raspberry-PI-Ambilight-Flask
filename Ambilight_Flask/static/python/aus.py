@@ -4,7 +4,9 @@ import json
 
 # LED configuration
 with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
-    data = json.load(file)
+    nested_data = json.load(file)
+
+data = nested_data["Ambilight"]
 
 LED_COUNT_LEFT = data["count_left"]
 LED_COUNT_TOP = data["count_top"]
