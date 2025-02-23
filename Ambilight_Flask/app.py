@@ -74,10 +74,16 @@ def power(startscript, stopscript, new_power):
                 text=True
             )
 
+            # Read and print output in real-time
+            for line in process.stdout:
+                print(line.strip())  # Show live output
+
             process.wait()  # Wait for the process to complete
 
-            if "Done:" not in process.stdout:
-                raise Exception(process.stdout.read())
+            stdout = process.stdout.read()
+
+            if "Done:" not in stdout:
+                raise Exception(stdout)
 
 
         return jsonify({"message": "Successfully started python script!"}), 200
