@@ -2,14 +2,16 @@
   hosts: raspberrypi
   become: yes
   tasks:
-    - name: Set environment variable
+    - name: Set environment variable in /etc/environment
       lineinfile:
         path: /etc/environment
         regexp: '^FLASK_BASE_PATH='
         line: "FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
-    - name: zeich mal her
-      shell:
-        cmd: echo {{ lookup('env', 'FLASK_BASE_PATH') }}
+    - name: Set environment variable in ~/.bashrc
+      lineinfile:
+        path: ~/.bashrc
+        line: "export FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
+        create: yes
     - name: Deploy Application
       copy:
         src: ../Ambilight_Flask
