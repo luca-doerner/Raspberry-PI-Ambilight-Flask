@@ -39,7 +39,7 @@ def getConfig():
         with open("static/config.json") as file:
             data = json.load(file)
         
-        return Response(json.dumps(data), mimetype=("application/json"))
+        return Response(json.dumps(data), mimetype=("application/json")), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

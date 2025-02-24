@@ -50,7 +50,11 @@ async function loadConfig(){
         }, 3000);
 
         fetch("/get-config")
-            .then(response => response.json())
+            .then(response => {
+                if(response.status != 200){
+                    throw new Error(response.json())
+                }
+            })
             .then(config => {
                 mode = config.mode
                 power = config.power
@@ -60,6 +64,7 @@ async function loadConfig(){
             })
             .catch(error => {
                 console.log("Error while loading: " + error)
+                console.log("Error while loading: " + error.error)
                 if(!timeoutReached){
                     clearTimeout(timeout)
                     reject(error)
