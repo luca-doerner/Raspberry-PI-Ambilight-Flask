@@ -65,6 +65,7 @@ def setConfig():
 def power(startscript, stopscript, new_power):
     try:
         subprocess.run(["bash", "static/sh/" + stopscript], text=True, check=True)
+        message = "Successfully stopped Python script!"
 
         if(new_power["power"] == "on"):
             stdout = ""
@@ -84,9 +85,10 @@ def power(startscript, stopscript, new_power):
 
             if "Done:" not in stdout:
                 raise Exception(stdout)
+            message = "Successfully stopped and started Python script!"
 
 
-        return jsonify({"message": "Successfully started python script!"}), 200
+        return jsonify({"message": message}), 200
     except Exception as e:
         return jsonify({"error": "Error while starting Python script!", "details": str(e)}), 300
 

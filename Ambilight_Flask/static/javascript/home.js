@@ -54,6 +54,7 @@ async function loadConfig(){
                 if(response.status != 200){
                     throw new Error(response.json())
                 }
+                return response.json()
             })
             .then(config => {
                 mode = config.mode
@@ -63,7 +64,6 @@ async function loadConfig(){
                 resolve()
             })
             .catch(error => {
-                console.log("Error while loading: " + error)
                 console.log("Error while loading: " + error.error)
                 if(!timeoutReached){
                     clearTimeout(timeout)
