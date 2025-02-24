@@ -7,16 +7,16 @@
 #        path: /etc/environment
 #        regexp: '^FLASK_BASE_PATH='
 #        line: "FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
-    - name: Set environment variable in ~/.bashrc
-      lineinfile:
-        path: "~/.bashrc"
-        regexp: '^export FLASK_BASE_PATH='
-        line: "export FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
-    - name: Setze FLASK_BASE_PATH in venv/bin/activate
-      lineinfile:
-        path: "{{ lookup('env', 'FLASK_BASE_PATH') }}/venv/bin/activate"
-        regexp: '^export FLASK_BASE_PATH='
-        line: "export FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
+#    - name: Set environment variable in ~/.bashrc
+#      lineinfile:
+#        path: "~/.bashrc"
+#        regexp: '^export FLASK_BASE_PATH='
+#        line: "export FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
+#    - name: Setze FLASK_BASE_PATH in venv/bin/activate
+#      lineinfile:
+#        path: "{{ lookup('env', 'FLASK_BASE_PATH') }}/venv/bin/activate"
+#        regexp: '^export FLASK_BASE_PATH='
+#        line: "export FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
     - name: Deploy Application
       copy:
         src: ../Ambilight_Flask

@@ -3,10 +3,8 @@ import neopixel
 import json
 import os
 
-FLASK_BASE_PATH = os.getenv("FLASK_BASE_PATH")
-
 # LED configuration
-with open(FLASK_BASE_PATH + "/Ambilight_Flask/static/config.json", "r") as file:
+with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
     nested_data = json.load(file)
 
 data = nested_data["Ambilight"]

@@ -6,10 +6,10 @@
     # -c to supress colored output
 
 #settings
-source $FLASK_BASE_PATH/venv/bin/activate
+source /home/luca/venv/bin/activate
 
-PYTHON_FILE=$FLASK_BASE_PATH/Ambilight_Flask/app.py
-NOHUP_OUT=$FLASK_BASE_PATH/Ambilight_Flask/logs/flask-nohup.out
+PYTHON_FILE=/home/luca/Ambilight_Flask/app.py
+NOHUP_OUT=/home/luca/Ambilight_Flask/logs/flask-nohup.out
 
 # option variables
 FOREGROUND=false
@@ -49,7 +49,7 @@ if [ $FOREGROUND = true ]
 then
     python3 $PYTHON_FILE $DEBUG
 else
-    nohup python3 $PYTHON_FILE $DEBUG > ${NOHUP_OUT} &
+    nohup python3 $PYTHON_FILE $DEBUG > ${NOHUP_OUT} 2>&1 &
     sleep 1
     if [ $SILENT = false ]
     then
