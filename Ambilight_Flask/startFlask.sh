@@ -6,9 +6,10 @@
     # -c to supress colored output
 
 #settings
+source $FLASK_BASE_PATH/venv/bin/activate
+
 PYTHON_FILE=$FLASK_BASE_PATH/Ambilight_Flask/app.py
 NOHUP_OUT=$FLASK_BASE_PATH/Ambilight_Flask/logs/flask-nohup.out
-VENV=$FLASK_BASE_PATH/venv/bin/activate
 
 # option variables
 FOREGROUND=false
@@ -18,8 +19,6 @@ DEBUG=""
 
 #echo function to stderr
 echoerr() { echo -e "$@" 1>&2; }
-
-source $VENV
 
 # get options
 while getopts fsqcd opt
