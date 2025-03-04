@@ -1,5 +1,5 @@
 #startPage {
-    display: grid;
+    display: none;
     grid-template-columns: repeat(3, 1fr);  /* 3 equal columns */
     grid-template-rows: auto;  /* Adjust row height based on content */
     gap: 15px;

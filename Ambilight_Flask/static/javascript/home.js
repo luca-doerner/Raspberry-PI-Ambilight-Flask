@@ -21,20 +21,16 @@ async function loadPage(page){
             resolve(); // Resolve the promise even after timeout
         }, 3000);
         
-        fetch(page)
-            .then(response => response.text())
-            .then(html => {
-                contentPage.innerHTML = html
+        try{
+            contentPage.src = "/" + mode
+            clearTimeout(timeout)
+            resolve()
+        } catch(e){
+            if(!timeoutReached){
                 clearTimeout(timeout)
-                resolve()
-            })
-            .catch(error => {
-                console.log("Error while loading: " + error)
-                if(!timeoutReached){
-                    clearTimeout(timeout)
-                    reject(error)
-                }
-            })
+                reject(e)
+            }
+        }
     })
 }
 
@@ -170,14 +166,13 @@ window.onload = async () => {
 
     await loadConfig()
 
-    showPage()
-
     modeSelection.value = mode
     powerSwitch.checked = power == "on" ? true : false
 
     await loadScript()
 
-    loadPage("/" + mode)
+    await loadPage("/" + mode)
+    showPage()
 }
 
 changeModeButton.addEventListener("click", async () => {
