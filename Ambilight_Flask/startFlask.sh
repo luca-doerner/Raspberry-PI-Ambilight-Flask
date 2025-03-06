@@ -6,10 +6,13 @@
     # -c to supress colored output
 
 #settings
-source /home/luca/venv/bin/activate
+#source /home/luca/venv/bin/activate
+source /workspaces/Raspberry-PI-Ambilight-Flask/venv/bin/activate
 
-PYTHON_FILE=/home/luca/Ambilight_Flask/app.py
-NOHUP_OUT=/home/luca/Ambilight_Flask/logs/flask-nohup.out
+#PYTHON_FILE=/home/luca/Ambilight_Flask/app.py
+#NOHUP_OUT=/home/luca/Ambilight_Flask/logs/flask-nohup.out
+PYTHON_FILE=/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/app.py
+NOHUP_OUT=/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/logs/flask-nohup.out
 
 # option variables
 FOREGROUND=false

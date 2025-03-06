@@ -38,10 +38,22 @@ def getConfig():
     try:
         with open("static/config.json") as file:
             data = json.load(file)
+
+        referer = request.headers.get("Referer", "Unknown")
+        print(f"/get-config Request received from: {referer}")
         
         return Response(json.dumps(data), mimetype=("application/json")), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+def updateValues(new_data, data):
+    for key, value in new_data.items():
+        if(isinstance(new_data.get(key), dict)):
+            data[key] = updateValues(new_data.get(key), data.get(key))
+        else:
+            data[key] = value
+
+    return data
 
 @app.route("/set-config", methods=["POST"])
 def setConfig():
@@ -51,8 +63,7 @@ def setConfig():
         with open("static/config.json", "r") as file:
             data = json.load(file)
 
-        for key, value in new_data.items():
-            data[key] = value
+        data = updateValues(new_data, data)
 
         with open("static/config.json", "w") as file:
             json.dump(data, file, indent=4)       
@@ -83,8 +94,8 @@ def power(startscript, stopscript, new_power):
 
             process.wait()  # Wait for the process to complete
 
-            if "Done:" not in stdout:
-                raise Exception(stdout)
+            #if "Done:" not in stdout:
+            #    raise Exception(stdout)
             message = "Successfully stopped and started Python script!"
 
 
@@ -96,7 +107,7 @@ def power(startscript, stopscript, new_power):
 def power_ambilight():
     new_power = request.json
 
-    return power("startAmbilight.sh", "stopAmbilight.sh", new_power)
+    return power("startTest.sh", "stopTest.sh", new_power)
 
 
 @app.route("/power/staticColor", methods=["POST"])
@@ -108,6 +119,13 @@ def power_staticColor():
         return jsonify({"message": "Successfully started python script!"}), 200
     except Exception as e:
         return jsonify({"error": "Moin while starting Python script!", "details": str(start)}), 300
+
+
+@app.route("/print", methods=["POST"])
+def printMessage():
+    message = request.json
+    print(message)
+    return jsonify({"message": "tiptop geprintet"}), 200
 
 if __name__ == "__main__":
     app.run(

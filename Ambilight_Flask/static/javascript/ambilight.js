@@ -38,13 +38,37 @@ class ConfigValues{
         this.json = jsonBody
     }
 
-    setConfigValuesInJson(){
-        let jsonBodyCurrent = this.getOnlyCurrentChangedValues
-        let jsonBodyAll = this.getAllCurrentValues()
+    async setConfigValuesInJson(){
+        return new Promise((resolve, reject) => {
+            let timeoutReached = false
 
-        this.setConfigValuesInMemory(jsonBodyAll)
-        updateConfig(jsonBodyCurrent);
+            const timeout = setTimeout(() => {
+                timeoutReached = true
+                console.log("Loading the config took too long. Which is unusual.")
+                resolve()
+            })
 
+            try
+            {
+                let jsonBodyCurrent = this.getOnlyCurrentChangedValues()
+                let jsonBodyAll = this.getAllCurrentValues()
+                console.log(jsonBodyCurrent)
+                console.log(jsonBodyAll)
+        
+                this.setConfigValuesInMemory(jsonBodyAll)
+                updateConfig({
+                    "Ambilight": jsonBodyCurrent
+                });
+
+                clearTimeout(timeout)
+                resolve()
+            } catch(e){
+                if(!timeoutReached){
+                    clearTimeout(timeout)
+                    reject(e)
+                }
+            }
+        })
     }
 
     async setConfigValuesInTextFields(){
@@ -62,6 +86,12 @@ class ConfigValues{
                     let textfield = document.getElementsByName(key)[0]
                     textfield.value = this.json[key]
                 }
+                sliders.forEach((element) => {
+                    element.dispatchEvent(new Event("input", sliderToText))
+                })
+                sliderTextFields.forEach((element) => {
+                    element.dispatchEvent(new Event("input", textToSlider))
+                })
                 clearTimeout(timeout)
                 resolve()
             } catch(e){
@@ -76,7 +106,7 @@ class ConfigValues{
     getAllCurrentValues(){
         let jsonBody = {}
         configValues.forEach((element) => {
-            jsonBody[element.name] = element.value
+            jsonBody[element.name] = parseFloat(element.value)
         })
 
         return jsonBody
@@ -86,7 +116,7 @@ class ConfigValues{
         let jsonBody = {}
         configValues.forEach((element) => {
             if(this.json[element.name] != element.value){
-                jsonBody[element.name] = element.value
+                jsonBody[element.name] = parseFloat(element.value)
             }
         })
 
@@ -103,13 +133,16 @@ class ConfigValues{
 
 
 //////////////////////// Variables /////////////////////////////////////////////////////////////////
-let sliders = document.querySelectorAll(".slider")
-let sliderTextFields = document.querySelectorAll(".sliderTextField")
-let configValues = document.querySelectorAll(".configValue")
-let config = new ConfigValues()
+const sliders = document.querySelectorAll(".slider")
+const sliderTextFields = document.querySelectorAll(".sliderTextField")
+const configValues = document.querySelectorAll(".configValue")
+const config = new ConfigValues()
 
-let loadingPage = document.getElementById("loadingPage")
-let ambilightPage = document.getElementById("ambilightPage")
+const loadingPage = document.getElementById("loadingPage")
+const ambilightPage = document.getElementById("ambilightPage")
+
+const changeConfigButton = document.getElementById("changeConfigButton")
+const resetConfigChangesButton = document.getElementById("resetConfigChangesButton")
 
 
 
@@ -230,13 +263,6 @@ window.onload = async () => {
     await config.loadConfigInMemory()
     await config.setConfigValuesInTextFields()
 
-    sliders.forEach((element) => {
-        element.dispatchEvent(new Event("input", sliderToText))
-    })
-    sliderTextFields.forEach((element) => {
-        element.dispatchEvent(new Event("input", textToSlider))
-    })
-
     showPage()
 }
 
@@ -265,3 +291,12 @@ sliderTextFields.forEach((element) => {
     element.addEventListener("input", textToSlider)
 });
 
+
+changeConfigButton.addEventListener("click", async () => {
+    await config.setConfigValuesInJson()
+})
+
+resetConfigChangesButton.addEventListener("click", async () => {
+    await config.loadConfigInMemory()
+    await config.setConfigValuesInTextFields()
+})

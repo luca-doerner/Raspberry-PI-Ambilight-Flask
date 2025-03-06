@@ -1,3 +1,4 @@
+from watchdog.observers import Observer
 import multiprocessing as mp
 import board
 import neopixel
@@ -6,24 +7,13 @@ import numpy as np
 import cv2
 import json
 import os
+import requests
+from config import Config
 
-
-# LED configuration
-with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
-    nested_data = json.load(file)
-
-data = nested_data["Ambilight"]
-
-LED_COUNT_LEFT = data["count_left"]
-LED_COUNT_TOP = data["count_top"]
-LED_COUNT_RIGHT = data["count_right"]
-LED_COUNT_BOTTOM = data["count_bottom"]
-LED_COUNT = LED_COUNT_BOTTOM + LED_COUNT_RIGHT + LED_COUNT_TOP + LED_COUNT_LEFT
-LED_BRIGHTNESS = data["brightness"]
-LED_OFFSET = data["offset"]
-PIN = board.D18
-
-WAIT = 0.0016
+################ Global Variables #################################################################
+MODE = "Ambilight"
+CONFIG_URL = "http://localhost:5000/get-config"
+CONFIG_PATH = "/home/luca/Ambilight_Flask/static/config.json"
 
 #Always update LED configuratiosn from JSON
 #def update_variables():
@@ -33,21 +23,20 @@ WAIT = 0.0016
 #                data = json.load(file)["Ambilight"]
 #
 #
-#            global LED_COUNT_LEFT, LED_COUNT_TOP, LED_COUNT_RIGHT, LED_COUNT_BOTTOM, LED_COUNT, LED_BRIGHTNESS, LED_OFFSET
-#            LED_COUNT_LEFT = data["count_left"]
-#            LED_COUNT_TOP = data["count_top"]
-#            LED_COUNT_RIGHT = data["count_right"]
-#            LED_COUNT_BOTTOM = data["count_bottom"]
-#            LED_COUNT = LED_COUNT_BOTTOM + LED_COUNT_RIGHT + LED_COUNT_TOP + LED_COUNT_LEFT
-#            LED_BRIGHTNESS = data["brightness"]
-#            LED_OFFSET = data["offset"]
+#            global config.get("count_left"), config.get("count_top"), config.get("count_right"), config.get("count_bottom"), LED_COUNT, config.get("brightness"), config.get("offset")
+#            config.get("count_left") = data["count_left"]
+#            config.get("count_top") = data["count_top"]
+#            config.get("count_right") = data["count_right"]
+#            config.get("count_bottom") = data["count_bottom"]
+#            LED_COUNT = config.get("count_bottom") + config.get("count_right") + config.get("count_top") + config.get("count_left")
+#            config.get("brightness") = data["brightness"]
+#            config.get("offset") = data["offset"]
 #        except KeyboardInterrupt:
 #            pixels.fill((0,0,0))
 #            pixels.show()
 #            exit()
 
-
-
+################ Helper Functions #####################################################################
 # turns a bgr color a rgb color
 def bgr_to_rgb(colors):
     colors[:, [0, 2]] = colors[:, [2, 0]]
@@ -55,32 +44,7 @@ def bgr_to_rgb(colors):
 
 
 
-old_pixels = [[0,0,0]] * LED_COUNT
-new_pixels = [[0,0,0]] * LED_COUNT
-
-
-
-# Initialize NeoPixel object
-pixels = neopixel.NeoPixel(PIN, LED_COUNT, brightness=1, auto_write=False)
-
-
-
-# Initialize Capture Device
-capture_device = 0
-cap = cv2.VideoCapture(capture_device, cv2.CAP_V4L2)
-
-if not cap.isOpened():
-    print(f"Fehler: HDMI-Capture-Device {capture_device} nicht gefunden!")
-
-    capture_device = 1
-    cap = cv2.VideoCapture(capture_device, cv2.CAP_V4L2)
-
-    if not cap.isOpened():
-        print(f"Fehler: HDMI-Capture-Device {capture_device} nicht gefunden!")
-        exit()
-
-
-
+################ Processes #####################################################################
 # Process for getting the screen via a Screenshot
 def get_screen(q):
     while True:
@@ -100,14 +64,14 @@ def get_screen(q):
 
 # Process for resizing the captured screenshot into 4 different small 
 # pictures for all sides, so it gets the dominant color
-def get_dominant_color(q_in, q_out):
+def get_dominant_color(q_in, q_out, config):
     while True:
         try:
             frame = q_in.get()
-            resized_left = cv2.resize(frame, (9, LED_COUNT_LEFT), interpolation=cv2.INTER_NEAREST)
-            resized_top = cv2.resize(frame, (LED_COUNT_TOP, 9), interpolation=cv2.INTER_NEAREST)
-            resized_right = cv2.resize(frame, (9, LED_COUNT_RIGHT), interpolation=cv2.INTER_NEAREST)
-            resized_bottom = cv2.resize(frame, (LED_COUNT_BOTTOM, 9), interpolation=cv2.INTER_NEAREST)
+            resized_left = cv2.resize(frame, (9, config.get("count_left")), interpolation=cv2.INTER_NEAREST)
+            resized_top = cv2.resize(frame, (config.get("count_top"), 9), interpolation=cv2.INTER_NEAREST)
+            resized_right = cv2.resize(frame, (9, config.get("count_right")), interpolation=cv2.INTER_NEAREST)
+            resized_bottom = cv2.resize(frame, (config.get("count_bottom"), 9), interpolation=cv2.INTER_NEAREST)
             resized = [resized_left, resized_top, resized_right, resized_bottom]
             q_out.put(resized)
             time.sleep(WAIT)
@@ -121,7 +85,7 @@ def get_dominant_color(q_in, q_out):
 
 
 # updates all the LEDS with the new "smooth" color
-def calc_color_arr(q_in, q_out):
+def calc_color_arr(q_in, q_out, config):
     """ LEDs aktualisieren """
     while True:
         try:
@@ -136,27 +100,27 @@ def calc_color_arr(q_in, q_out):
             colors_right = colors[2]
             colors_bottom = colors[3]
 
-            new_pixels[:LED_COUNT_LEFT] = colors_left[:, 1][::-1]
-            new_pixels[LED_COUNT_LEFT:LED_COUNT_LEFT+LED_COUNT_TOP] = colors_top[1, :]
-            new_pixels[LED_COUNT_LEFT+LED_COUNT_TOP:LED_COUNT_LEFT+LED_COUNT_TOP+LED_COUNT_RIGHT] = colors_right[:, 7]
-            new_pixels[LED_COUNT_LEFT+LED_COUNT_TOP+LED_COUNT_RIGHT:LED_COUNT_LEFT+LED_COUNT_TOP+LED_COUNT_RIGHT+LED_COUNT_BOTTOM] = colors_bottom[7, :][::-1]
+            new_pixels[:config.get("count_left")] = colors_left[:, 1][::-1]
+            new_pixels[config.get("count_left"):config.get("count_left")+config.get("count_top")] = colors_top[1, :]
+            new_pixels[config.get("count_left")+config.get("count_top"):config.get("count_left")+config.get("count_top")+config.get("count_right")] = colors_right[:, 7]
+            new_pixels[config.get("count_left")+config.get("count_top")+config.get("count_right"):config.get("count_left")+config.get("count_top")+config.get("count_right")+config.get("count_bottom")] = colors_bottom[7, :][::-1]
 
             new_pixels = np.array(new_pixels)
             new_pixels = bgr_to_rgb(new_pixels)
 
 #            for i in range(LED_COUNT):
 #                #LEDS for right side
-#                if(i >= LED_COUNT_LEFT+LED_COUNT_TOP+LED_COUNT_RIGHT):
-#                    color = colors_bottom[7, (LED_COUNT_BOTTOM-1) - (i - (LED_COUNT_LEFT+LED_COUNT_TOP+LED_COUNT_RIGHT))]
+#                if(i >= config.get("count_left")+config.get("count_top")+config.get("count_right")):
+#                    color = colors_bottom[7, (config.get("count_bottom")-1) - (i - (config.get("count_left")+config.get("count_top")+config.get("count_right")))]
 #                    new_pixels[i] = bgr_to_rgb(color.tolist())  # Pass as list
-#                elif(i >= LED_COUNT_LEFT+LED_COUNT_TOP):
-#                    color = colors_right[i - (LED_COUNT_LEFT+LED_COUNT_TOP), 7]
+#                elif(i >= config.get("count_left")+config.get("count_top")):
+#                    color = colors_right[i - (config.get("count_left")+config.get("count_top")), 7]
 #                    new_pixels[i] = bgr_to_rgb(color.tolist())  # Pass as list
-#                elif(i >= LED_COUNT_LEFT):
-#                    color = colors_top[1, i - LED_COUNT_LEFT]
+#                elif(i >= config.get("count_left")):
+#                    color = colors_top[1, i - config.get("count_left")]
 #                    new_pixels[i] = bgr_to_rgb(color.tolist())  # Pass as list
 #                else:
-#                    color = colors_left[(LED_COUNT_LEFT-1) - i, 1]
+#                    color = colors_left[(config.get("count_left")-1) - i, 1]
 #                    new_pixels[i] = bgr_to_rgb(color.tolist())  # Pass as list
             q_out.put(new_pixels)
         except Exception:
@@ -167,12 +131,12 @@ def calc_color_arr(q_in, q_out):
             pass
 
 #make color transitions smooth + darker colors are made even darker
-def get_smooth_color(q, ratio=0.7):
+def get_smooth_color(q, config, ratio=0.7):
     while True:
         try:
             c1 = old_pixels
             c2 = q.get()
-            c2 = c2*(np.power(np.mean(c2, axis=1, keepdims=True)/255, 0.2))*LED_BRIGHTNESS
+            c2 = c2*(np.power(np.mean(c2, axis=1, keepdims=True)/255, 0.2))*config.get("brightness")
             smooth_color = np.rint(np.array(c1)*ratio + np.array(c2)*(1-ratio)).astype(int).tolist()
             pixels[:] = smooth_color
             old_pixels[:] = pixels
@@ -185,9 +149,46 @@ def get_smooth_color(q, ratio=0.7):
             pass
 
 
+
+################ Main Function #####################################################################
 # starts all processes
 if __name__ == "__main__":
-    print("Started Ambilight")
+    # Initialize Capture Device
+    capture_device = 0
+    cap = cv2.VideoCapture(capture_device, cv2.CAP_V4L2)
+
+    if not cap.isOpened():
+        print(f"Fehler: HDMI-Capture-Device {capture_device} nicht gefunden!")
+
+        capture_device = 1
+        cap = cv2.VideoCapture(capture_device, cv2.CAP_V4L2)
+
+        if not cap.isOpened():
+            print(f"Fehler: HDMI-Capture-Device {capture_device} nicht gefunden!")
+            exit()
+
+    print("Started " + MODE)
+
+################ Configurations #####################################################################
+    manager = mp.Manager()
+    shared_dict = manager.dict()
+
+    # LED configuration
+    config = Config(MODE, CONFIG_URL, CONFIG_PATH, shared_dict)
+    observer = Observer()
+    observer.schedule(config, CONFIG_PATH, recursive=False)
+
+    LED_COUNT = config.get("count_bottom") + config.get("count_right") + config.get("count_top") + config.get("count_left")
+    PIN = board.D18
+
+    WAIT = 0.0016
+
+    old_pixels = [[0,0,0]] * LED_COUNT
+    new_pixels = [[0,0,0]] * LED_COUNT
+
+    # Initialize NeoPixel object
+    pixels = neopixel.NeoPixel(PIN, LED_COUNT, brightness=1, auto_write=False)
+
 
     # queue elements
     q_screen = mp.Queue()
@@ -196,9 +197,9 @@ if __name__ == "__main__":
 
     # processes
     p_get_screen = mp.Process(target=get_screen, args=(q_screen,))
-    p_dominant_colors = mp.Process(target=get_dominant_color, args=(q_screen, q_colors))
-    p_calc_color_arr = mp.Process(target=calc_color_arr, args=(q_colors, q_new_colors))
-    p_smooth_colors = mp.Process(target=get_smooth_color, args=(q_new_colors,))
+    p_dominant_colors = mp.Process(target=get_dominant_color, args=(q_screen, q_colors, config))
+    p_calc_color_arr = mp.Process(target=calc_color_arr, args=(q_colors, q_new_colors, config))
+    p_smooth_colors = mp.Process(target=get_smooth_color, args=(q_new_colors, config))
 #    p_update_variables = mp.Process(target=update_variables)
 
     # start of process
@@ -206,16 +207,18 @@ if __name__ == "__main__":
     p_dominant_colors.start()
     p_calc_color_arr.start()
     p_smooth_colors.start()
+    observer.start()
 #    p_update_variables.start()
 
 #    print("Started Update Variables with PID {p_update_variables.pid}")
-    print("Started Get Screen with PID {p_get_screen.pid}")
-    print("Started Get Dominant Colors with PID {p_dominant_colors.pid}")
-    print("Started Calculate Color Array with PID {p_calc_color_arr.pid}")
-    print("Started Smooth Colors with PID {p_smooth_colors.pid}")
+    print(f"Started Get Screen with PID {p_get_screen.pid}")
+    print(f"Started Get Dominant Colors with PID {p_dominant_colors.pid}")
+    print(f"Started Calculate Color Array with PID {p_calc_color_arr.pid}")
+    print(f"Started Smooth Colors with PID {p_smooth_colors.pid}")
 
     # order in which processes get started
 #    p_update_variables.join()
+    observer.join()
     p_get_screen.join()
     p_dominant_colors.join()
     p_calc_color_arr.join()
