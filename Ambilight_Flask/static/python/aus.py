@@ -4,7 +4,7 @@ import json
 import os
 
 # LED configuration
-with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
+with open("../config.json", "r") as file:
     nested_data = json.load(file)
 
 data = nested_data["Ambilight"]

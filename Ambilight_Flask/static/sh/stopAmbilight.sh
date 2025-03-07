@@ -1,12 +1,16 @@
 #!/bin/bash
 
+config="$(dirname "$(realpath "$0")")/../config.json"
+
+export FLASK_BASE_PATH=$(jq -r ".base_path" "$config")
+
 #settings
 FILE_NAME="ambilight.py"
-PATTERN="/home/luca/Ambilight_Flask/static/python/${FILE_NAME}"
-AUS="/home/luca/Ambilight_Flask/static/python/aus.py"
+PATTERN="$FLASK_BASE_PATH/Ambilight_Flask/static/python/${FILE_NAME}"
+AUS="$FLASK_BASE_PATH/Ambilight_Flask/static/python/aus.py"
 PID=$(pgrep -f -d ',' ${PATTERN})
 COUNT=$(pgrep -fc ${PATTERN})
-VENV="/home/luca/venv/bin/activate"
+VENV="$FLASK_BASE_PATH/venv/bin/activate"
 
 COLORS=true
 

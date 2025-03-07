@@ -3,170 +3,23 @@
 [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5000
- * Running on http://10.0.13.202:5000
+ * Running on http://10.0.13.132:5000
 [33mPress CTRL+C to quit[0m
  * Restarting with watchdog (inotify)
  * Debugger is active!
- * Debugger PIN: 436-295-801
-127.0.0.1 - - [06/Mar/2025 11:51:17] "GET /get-config HTTP/1.1" 200 -
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
-Received from: Unknown
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
-127.0.0.1 - - [06/Mar/2025 11:52:19] "GET /get-config HTTP/1.1" 200 -
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
-Received from: Unknown
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
-127.0.0.1 - - [06/Mar/2025 11:53:29] "GET /get-config HTTP/1.1" 200 -
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
-Received from: Unknown
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
-127.0.0.1 - - [06/Mar/2025 11:53:57] "GET /get-config HTTP/1.1" 200 -
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
-Received from: Unknown
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
-127.0.0.1 - - [06/Mar/2025 11:54:27] "GET /get-config HTTP/1.1" 200 -
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
-Received from: Unknown
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
-127.0.0.1 - - [06/Mar/2025 11:55:56] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:56:02] "GET /get-config HTTP/1.1" 200 -
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
-Received from: Unknown
-Received from: Unknown
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/config.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
-127.0.0.1 - - [06/Mar/2025 11:56:52] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:57:00] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:57:00] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:57:00] "GET /get-config HTTP/1.1" 200 -
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
-Received from: Unknown
-Received from: Unknown
-Received from: Unknown
-Received from: Unknown
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
- * Detected change in '/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/python/test.py', reloading
- * Restarting with watchdog (inotify)
- * Debugger is active!
- * Debugger PIN: 436-295-801
-127.0.0.1 - - [06/Mar/2025 11:57:25] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:57:33] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:57:33] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:57:33] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:57:38] "GET /get-config HTTP/1.1" 200 -
-127.0.0.1 - - [06/Mar/2025 11:57:38] "GET /get-config HTTP/1.1" 200 -
+ * Debugger PIN: 924-714-124
+127.0.0.1 - - [07/Mar/2025 15:59:15] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2025 15:59:16] "[36mGET /static/css/home.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/Mar/2025 15:59:16] "[36mGET /static/javascript/home.js HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/Mar/2025 15:59:17] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+127.0.0.1 - - [07/Mar/2025 15:59:17] "GET /get-config HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2025 15:59:18] "POST /set-config HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2025 15:59:21] "GET /get-config HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2025 15:59:22] "GET /ambilight HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2025 15:59:22] "POST /power/ambilight HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2025 15:59:22] "GET /get-config HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2025 15:59:22] "[36mGET /static/css/ambilight.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/Mar/2025 15:59:22] "[36mGET /static/javascript/ambilight.js HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/Mar/2025 15:59:23] "GET /get-config HTTP/1.1" 200 -
+127.0.0.1 - - [07/Mar/2025 15:59:23] "[36mGET /static/css/home.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/Mar/2025 15:59:23] "[36mGET /static/css/ambilight.css HTTP/1.1[0m" 304 -

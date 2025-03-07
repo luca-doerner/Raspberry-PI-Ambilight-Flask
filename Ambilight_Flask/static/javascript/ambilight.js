@@ -15,12 +15,13 @@ class ConfigValues{
         }
     }
 
-    async loadConfigInMemory(){
-        await loadConfig()
+    async loadProgramConfigInMemory(){
+        await loadProgramConfig()
     }
 
-    setConfigValuesInMemory(count_left, count_top, count_right, count_bottom, offset, brightness, strength_red, strength_green, strength_blue, strength_black, smoothness){
+    setConfigValuesInMemory(name, count_left, count_top, count_right, count_bottom, offset, brightness, strength_red, strength_green, strength_blue, strength_black, smoothness){
         this.json = {
+            "name": name,
             "count_left": count_left,
             "count_top": count_top,
             "count_right": count_right,
@@ -34,8 +35,52 @@ class ConfigValues{
             "smoothness": smoothness
         }
     }
+
     setConfigValuesInMemory(jsonBody){
         this.json = jsonBody
+    }
+
+    changeConfigValuesInMemory(jsonBody){
+        Object.keys(jsonBody).forEach((key) => {
+            this.json[key] = jsonBody[key]
+        })
+    }
+
+    addLedCountToObjects(currentJson, wholeJson, ledCount, mode=null){
+        let newJson = {}
+        newJson["led_count"] = ledCount
+        if(mode != null && mode == this.json["name"]){
+            Object.keys(currentJson).forEach((key, value) => {
+                newJson[key] = currentJson[key]
+            })
+        }
+        Object.keys(wholeJson).forEach((key) => {
+            let value = wholeJson[key]
+            if (typeof value === "object" && !Array.isArray(value) && value !== null){
+                newJson[key] = this.addLedCountToObjects(currentJson, value, ledCount, key)
+            }
+        })            
+
+        return newJson
+    }
+
+    getLedCount(){
+        let ledCount
+        let summedLedCount = 0
+
+        Object.keys(jsonBodyAll).forEach((key) => {
+            if(key.startsWith("count_")){
+                summedLedCount += jsonBodyAll[key]
+            }
+        })
+
+        if(summedLedCount == 0){
+            ledCount = jsonBodyAll[led_count]
+        } else{
+            ledCount = summedLedCount
+        }
+
+        return ledCount
     }
 
     async setConfigValuesInJson(){
@@ -50,15 +95,20 @@ class ConfigValues{
 
             try
             {
-                let jsonBodyCurrent = this.getOnlyCurrentChangedValues()
-                let jsonBodyAll = this.getAllCurrentValues()
-                console.log(jsonBodyCurrent)
-                console.log(jsonBodyAll)
-        
-                this.setConfigValuesInMemory(jsonBodyAll)
-                updateConfig({
-                    "Ambilight": jsonBodyCurrent
-                });
+                returnWholeConfig().then(async wholeConfig => {
+                    let jsonBodyCurrent
+                    await this.getOnlyCurrentChangedValues().then(currentConfig => {
+                        jsonBodyCurrent = currentConfig
+                    })
+                    this.changeConfigValuesInMemory(this.getAllCurrentValuesInMemory())
+                    let jsonBodyAll = this.json
+
+                    let ledCount = this.getLedCount()
+
+                    let finalJson = this.addLedCountToObjects(jsonBodyCurrent, wholeConfig, ledCount)
+                    console.log(finalJson)
+                    updateConfig(finalJson)
+                })
 
                 clearTimeout(timeout)
                 resolve()
@@ -82,10 +132,9 @@ class ConfigValues{
             })
 
             try{
-                for(let key in this.json){
-                    let textfield = document.getElementsByName(key)[0]
-                    textfield.value = this.json[key]
-                }
+                configValues.forEach(textfield => {
+                    textfield.value = this.json[textfield.name]
+                });
                 sliders.forEach((element) => {
                     element.dispatchEvent(new Event("input", sliderToText))
                 })
@@ -103,7 +152,7 @@ class ConfigValues{
         })
     }
 
-    getAllCurrentValues(){
+    getAllCurrentValuesInMemory(){
         let jsonBody = {}
         configValues.forEach((element) => {
             jsonBody[element.name] = parseFloat(element.value)
@@ -113,14 +162,20 @@ class ConfigValues{
     }
 
     getOnlyCurrentChangedValues(){
-        let jsonBody = {}
-        configValues.forEach((element) => {
-            if(this.json[element.name] != element.value){
-                jsonBody[element.name] = parseFloat(element.value)
+        return new Promise((resolve, reject) => {
+            try {
+                let jsonBody = {}
+                configValues.forEach((element) => {
+                    if(this.json[element.name].toString() != element.value.toString()){
+                        jsonBody[element.name] = parseFloat(element.value)
+                    }
+                })
+        
+                resolve(jsonBody)
+            } catch(e){
+                reject(e)
             }
         })
-
-        return jsonBody
     }
 }
 
@@ -140,7 +195,9 @@ const config = new ConfigValues()
 
 const loadingPage = document.getElementById("loadingPage")
 const ambilightPage = document.getElementById("ambilightPage")
+const changeStartLedPage = document.getElementById("changeStartLedPage")
 
+const changeStartLedButton = document.getElementById("changeStartLedButton")
 const changeConfigButton = document.getElementById("changeConfigButton")
 const resetConfigChangesButton = document.getElementById("resetConfigChangesButton")
 
@@ -154,7 +211,7 @@ const resetConfigChangesButton = document.getElementById("resetConfigChangesButt
 
 
 //////////////////////// Fetch Functions ///////////////////////////////////////////////////////////
-async function loadConfig(){
+async function loadProgramConfig(){
     return new Promise((resolve, reject) => {
         let timeoutReached = false;
 
@@ -165,7 +222,9 @@ async function loadConfig(){
             resolve(); // Resolve the promise even after timeout
         }, 3000);
 
-        fetch("/get-config")
+        fetch("/get-config", {
+            headers:{"Referer": config.json["name"] != null ? config.json["name"].toLowerCase : "undefined" + ".js"}
+        })
             .then(response => {
                 if(response.status != 200){
                     throw new Error(response.json())
@@ -173,10 +232,47 @@ async function loadConfig(){
                 return response.json()
             })
             .then(newConfig => {
+                console.log(newConfig.Ambilight)
                 config.setConfigValuesInMemory(newConfig.Ambilight)
-                console.log("Succesfully loaded Ambilight Config!")
+                console.log("Succesfully loaded " + config.json["name"] + " Config!")
+                console.log(config.json)
                 clearTimeout(timeout)
                 resolve()
+            })
+            .catch(error => {
+                console.log("Error while loading: " + error.error)
+                if(!timeoutReached){
+                    clearTimeout(timeout)
+                    reject(error)
+                }
+            })
+    })
+}
+
+async function returnWholeConfig(){
+    return new Promise((resolve, reject) => {
+        let timeoutReached = false;
+
+        // Set a timeout to trigger after 3 seconds
+        const timeout = setTimeout(() => {
+            timeoutReached = true; // Mark timeout flag as true
+            console.log("Loading the config took too long, which is unusual.");
+            resolve(); // Resolve the promise even after timeout
+        }, 3000);
+
+        fetch("/get-config", {
+            headers:{"Referer": config.json["name"] != null ? config.json["name"].toLowerCase : "undefined" + ".js"}
+        })
+            .then(response => {
+                if(response.status != 200){
+                    throw new Error(response.json())
+                }
+                return response.json()
+            })
+            .then(newConfig => {
+                console.log("Succesfully loaded Whole Config!")
+                clearTimeout(timeout)
+                resolve(newConfig)
             })
             .catch(error => {
                 console.log("Error while loading: " + error.error)
@@ -202,7 +298,8 @@ async function updateConfig(jsonBody){
         fetch("/set-config", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "Referer": config.json["name"] != null ? config.json["name"].toLowerCase : "undefined" + ".js"
             },
             body: JSON.stringify(jsonBody)
         })
@@ -237,14 +334,22 @@ async function updateConfig(jsonBody){
 
 
 //////////////////////// Helper Functions ///////////////////////////////////////////////////////////
-function showLoading(){
+function showLoadingPage(){
     loadingPage.style.display = "block"
     ambilightPage.style.display = "none"
+    changeStartLedPage.style.display = "none"
 }
 
-function showPage(){
+function showAmbilightPage(){
     loadingPage.style.display = "none"
     ambilightPage.style.display = "grid"
+    changeStartLedPage.style.display = "none"
+}
+
+function showChangeStartLedPage(){
+    loadingPage.style.display = "none"
+    ambilightPage.style.display = "none"
+    changeStartLedPage.style.display = "grid"
 }
 
 
@@ -259,11 +364,11 @@ function showPage(){
 
 //////////////////////// Document Functions /////////////////////////////////////////////////////////
 window.onload = async () => {
-    showLoading()
-    await config.loadConfigInMemory()
+    showLoadingPage()
+    await config.loadProgramConfigInMemory()
     await config.setConfigValuesInTextFields()
 
-    showPage()
+    showAmbilightPage()
 }
 
 const textToSlider = (element) => {
@@ -291,12 +396,21 @@ sliderTextFields.forEach((element) => {
     element.addEventListener("input", textToSlider)
 });
 
+function addStartLedButtons(){
+    for(let i = 0; i < config.getLedCount(); i++){
+        let button = new button()
+    }
+}
+
+changeStartLedButton.addEventListener(("click"), async () => {
+    showChangeStartLedPage()
+})
 
 changeConfigButton.addEventListener("click", async () => {
     await config.setConfigValuesInJson()
 })
 
 resetConfigChangesButton.addEventListener("click", async () => {
-    await config.loadConfigInMemory()
+    await config.loadProgramConfigInMemory()
     await config.setConfigValuesInTextFields()
 })

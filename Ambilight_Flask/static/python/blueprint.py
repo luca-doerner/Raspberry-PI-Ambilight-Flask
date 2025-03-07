@@ -12,9 +12,11 @@ import requests
 from config import Config
 
 ################ Constants #################################################################
+FLASK_BASE_PATH = os.getenv("FLASK_BASE_PATH")
+
 MODE = ""
 CONFIG_URL = "http://localhost:5000/get-config"
-CONFIG_PATH = "/home/luca/Ambilight_Flask/static/config.json"
+CONFIG_PATH = "FLASK_BASE_PATH/Ambilight_Flask/static/config.json"
 
 
 

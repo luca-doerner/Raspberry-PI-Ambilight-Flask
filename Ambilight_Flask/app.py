@@ -95,7 +95,7 @@ def power(startscript, stopscript, new_power):
             process.wait()  # Wait for the process to complete
 
             #if "Done:" not in stdout:
-            #    raise Exception(stdout)
+            #   raise Exception(stdout)
             message = "Successfully stopped and started Python script!"
 
 

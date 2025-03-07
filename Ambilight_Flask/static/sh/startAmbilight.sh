@@ -5,10 +5,14 @@
     # -s or -q to supress additional startup information
     # -c to supress colored output
 
+config="$(dirname "$(realpath "$0")")/../config.json"
+
+export FLASK_BASE_PATH=$(jq -r ".base_path" "$config")
+
 #settings
-PYTHON_FILE=/home/luca/Ambilight_Flask/static/python/ambilight.py
-NOHUP_OUT=/home/luca/Ambilight_Flask/logs/ambilight-nohup.out
-VENV=/home/luca/venv/bin/activate
+PYTHON_FILE=$FLASK_BASE_PATH/Ambilight_Flask/static/python/ambilight.py
+NOHUP_OUT=$FLASK_BASE_PATH/Ambilight_Flask/logs/ambilight-nohup.out
+VENV=$FLASK_BASE_PATH/venv/bin/activate
 
 # option variables
 FOREGROUND=false

@@ -5,14 +5,18 @@
     # -s or -q to supress additional startup information
     # -c to supress colored output
 
+config="static/config.json"
+
+FLASK_BASE_PATH=$(jq -r ".base_path" "$config")
+
 #settings
 #source /home/luca/venv/bin/activate
-source /workspaces/Raspberry-PI-Ambilight-Flask/venv/bin/activate
+source $FLASK_BASE_PATH/venv/bin/activate
 
 #PYTHON_FILE=/home/luca/Ambilight_Flask/app.py
 #NOHUP_OUT=/home/luca/Ambilight_Flask/logs/flask-nohup.out
-PYTHON_FILE=/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/app.py
-NOHUP_OUT=/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/logs/flask-nohup.out
+PYTHON_FILE=$FLASK_BASE_PATH/Ambilight_Flask/app.py
+NOHUP_OUT=$FLASK_BASE_PATH/Ambilight_Flask/logs/flask-nohup.out
 
 # option variables
 FOREGROUND=false
@@ -56,7 +60,7 @@ else
     sleep 1
     if [ $SILENT = false ]
     then
-        echo "Waiting for Ambilight to start (timeout in 60 seconds)..."
+        echo "Waiting for Flask to start (timeout in 60 seconds)..."
         sleep 2
         PID=$(pgrep -f $PYTHON_FILE)
         STARTED=$(grep "Debugger PIN:.*" ${NOHUP_OUT})

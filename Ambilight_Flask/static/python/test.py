@@ -4,30 +4,27 @@ import json
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import requests
+import os
 from config import Config
+
+FLASK_BASE_PATH = os.getenv("FLASK_BASE_PATH")
 
 MODE = "Ambilight"
 CONFIG_URL = "http://localhost:5000/get-config"
-CONFIG_PATH = "/workspaces/Raspberry-PI-Ambilight-Flask/Ambilight_Flask/static/config.json"
+CONFIG_PATH = FLASK_BASE_PATH + "/Ambilight_Flask/static/config.json"
 
 
-
-
-#def printCountLeft(shared_dict):
- #   while True:
-  #      print(shared_dict)
-   #     print(shared_dict.get("Ambilight", {}).get("count_left", "Nicht gefunden"))
-    #    time.sleep(1)
 
 def printCountLeft(shared_dict):
     while True:
         print(config.get("count_left"))
         jsonBody = {"all": shared_dict.getAll(), "count_left": shared_dict.get("count_left")}
-        #moin = requests.post("http://localhost:5000/print", json=jsonBody)
+        #requests.post("http://localhost:5000/print", json=jsonBody)
         time.sleep(3)
 
 
 if __name__ == "__main__":
+    print("Started")
     manager = mp.Manager()
     shared_dict = manager.dict()
 

@@ -1,9 +1,11 @@
 {
     "mode": "ambilight",
-    "power": "on",
+    "power": "off",
+    "base_path": "/workspaces/Raspberry-PI-Ambilight-Flask",
     "led_count": 220,
     "Ambilight": {
-        "count_left": 39,
+        "name": "Ambilight",
+        "count_left": 37,
         "count_top": 71,
         "count_right": 39,
         "count_bottom": 73,
@@ -13,6 +15,10 @@
         "strength_green": 1,
         "strength_blue": 1,
         "strength_black": 1,
-        "smoothness": 1
+        "smoothness": 1,
+        "led_count": 220
+    },
+    "StaticColor": {
+        "led_count": 220
     }
 }

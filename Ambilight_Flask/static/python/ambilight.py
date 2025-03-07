@@ -11,24 +11,26 @@ import requests
 from config import Config
 
 ################ Global Variables #################################################################
+FLASK_BASE_PATH = os.getenv("FLASK_BASE_PATH")
+
 MODE = "Ambilight"
 CONFIG_URL = "http://localhost:5000/get-config"
-CONFIG_PATH = "/home/luca/Ambilight_Flask/static/config.json"
+CONFIG_PATH = "FLASK_BASE_PATH/Ambilight_Flask/static/config.json"
 
 #Always update LED configuratiosn from JSON
 #def update_variables():
 #    while True:
 #        try:
-#            with open("/home/luca/Ambilight_Flask/static/config.json", "r") as file:
+#            with open("FLASK_BASE_PATH/Ambilight_Flask/static/config.json", "r") as file:
 #                data = json.load(file)["Ambilight"]
 #
 #
-#            global config.get("count_left"), config.get("count_top"), config.get("count_right"), config.get("count_bottom"), LED_COUNT, config.get("brightness"), config.get("offset")
+#            global config.get("count_left"), config.get("count_top"), config.get("count_right"), config.get("count_bottom"), config.get("led_count"), config.get("brightness"), config.get("offset")
 #            config.get("count_left") = data["count_left"]
 #            config.get("count_top") = data["count_top"]
 #            config.get("count_right") = data["count_right"]
 #            config.get("count_bottom") = data["count_bottom"]
-#            LED_COUNT = config.get("count_bottom") + config.get("count_right") + config.get("count_top") + config.get("count_left")
+#            config.get("led_count") = config.get("count_bottom") + config.get("count_right") + config.get("count_top") + config.get("count_left")
 #            config.get("brightness") = data["brightness"]
 #            config.get("offset") = data["offset"]
 #        except KeyboardInterrupt:
@@ -93,7 +95,7 @@ def calc_color_arr(q_in, q_out, config):
 
             colors = q_in.get()
             if(np.mean(colors[0]) <= 0.5):
-                old_pixels=[[0,0,0]] * LED_COUNT
+                old_pixels=[[0,0,0]] * config.get("led_count")
 
             colors_left = colors[0]
             colors_top = colors[1]
@@ -108,7 +110,7 @@ def calc_color_arr(q_in, q_out, config):
             new_pixels = np.array(new_pixels)
             new_pixels = bgr_to_rgb(new_pixels)
 
-#            for i in range(LED_COUNT):
+#            for i in range(config.get("led_count")):
 #                #LEDS for right side
 #                if(i >= config.get("count_left")+config.get("count_top")+config.get("count_right")):
 #                    color = colors_bottom[7, (config.get("count_bottom")-1) - (i - (config.get("count_left")+config.get("count_top")+config.get("count_right")))]
@@ -178,16 +180,15 @@ if __name__ == "__main__":
     observer = Observer()
     observer.schedule(config, CONFIG_PATH, recursive=False)
 
-    LED_COUNT = config.get("count_bottom") + config.get("count_right") + config.get("count_top") + config.get("count_left")
     PIN = board.D18
 
     WAIT = 0.0016
 
-    old_pixels = [[0,0,0]] * LED_COUNT
-    new_pixels = [[0,0,0]] * LED_COUNT
+    old_pixels = [[0,0,0]] * config.get("led_count")
+    new_pixels = [[0,0,0]] * config.get("led_count")
 
     # Initialize NeoPixel object
-    pixels = neopixel.NeoPixel(PIN, LED_COUNT, brightness=1, auto_write=False)
+    pixels = neopixel.NeoPixel(PIN, config.get("led_count"), brightness=1, auto_write=False)
 
 
     # queue elements
