@@ -68,14 +68,14 @@ class ConfigValues{
         let ledCount
         let summedLedCount = 0
 
-        Object.keys(jsonBodyAll).forEach((key) => {
+        Object.keys(this.json).forEach((key) => {
             if(key.startsWith("count_")){
-                summedLedCount += jsonBodyAll[key]
+                summedLedCount += this.json[key]
             }
         })
 
         if(summedLedCount == 0){
-            ledCount = jsonBodyAll[led_count]
+            ledCount = this.json["led_count"]
         } else{
             ledCount = summedLedCount
         }
@@ -101,12 +101,10 @@ class ConfigValues{
                         jsonBodyCurrent = currentConfig
                     })
                     this.changeConfigValuesInMemory(this.getAllCurrentValuesInMemory())
-                    let jsonBodyAll = this.json
 
                     let ledCount = this.getLedCount()
 
                     let finalJson = this.addLedCountToObjects(jsonBodyCurrent, wholeConfig, ledCount)
-                    console.log(finalJson)
                     updateConfig(finalJson)
                 })
 
@@ -232,10 +230,8 @@ async function loadProgramConfig(){
                 return response.json()
             })
             .then(newConfig => {
-                console.log(newConfig.Ambilight)
                 config.setConfigValuesInMemory(newConfig.Ambilight)
-                console.log("Succesfully loaded " + config.json["name"] + " Config!")
-                console.log(config.json)
+                console.log({"message": "Succesfully loaded " + config.json["name"] + " Config!", "data": config.json})
                 clearTimeout(timeout)
                 resolve()
             })
@@ -270,7 +266,7 @@ async function returnWholeConfig(){
                 return response.json()
             })
             .then(newConfig => {
-                console.log("Succesfully loaded Whole Config!")
+                console.log({"message": "Succesfully loaded Whole Config!", "data": newConfig})
                 clearTimeout(timeout)
                 resolve(newConfig)
             })
@@ -310,7 +306,7 @@ async function updateConfig(jsonBody){
                 return response.json()
             })
             .then(data => {
-                console.log("Success: " + data.message)
+                console.log({"message": "Success: " + data.message, "data": jsonBody})
                 clearTimeout(timeout)
                 resolve()
             })
@@ -368,6 +364,8 @@ window.onload = async () => {
     await config.loadProgramConfigInMemory()
     await config.setConfigValuesInTextFields()
 
+    changeStartLedButton.value = changeStartLedButton.value
+
     showAmbilightPage()
 }
 
@@ -396,13 +394,100 @@ sliderTextFields.forEach((element) => {
     element.addEventListener("input", textToSlider)
 });
 
-function addStartLedButtons(){
-    for(let i = 0; i < config.getLedCount(); i++){
-        let button = new button()
+async function addStartLedButtons(){
+    return new Promise((resolve, reject) => {
+        let timeoutReached = false;
+
+        // Set a timeout to trigger after 3 seconds
+        const timeout = setTimeout(() => {
+            timeoutReached = true; // Mark timeout flag as true
+            console.log("Loading the config took too long, which is unusual.");
+            resolve(); // Resolve the promise even after timeout
+        }, 3000);
+
+        try{
+            let changeStartLedLeftContainer = document.getElementById("changeStartLedLeftContainer")
+            let changeStartLedTopContainer = document.getElementById("changeStartLedTopContainer")
+            let changeStartLedRightContainer = document.getElementById("changeStartLedRightContainer")
+            let changeStartLedBottomContainer = document.getElementById("changeStartLedBottomContainer")
+            changeStartLedLeftContainer.replaceChildren()
+            changeStartLedTopContainer.replaceChildren()
+            changeStartLedRightContainer.replaceChildren()
+            changeStartLedBottomContainer.replaceChildren()
+
+            for(let i = 0; i < config.getLedCount(); i++){
+                let ledElement = document.createElement("div")
+                ledElement.classList.add("changeStartLedButtons")
+                ledElement.addEventListener("click", updateStartLed)
+
+                if(i < config.json["count_left"]){
+                    ledElement.setAttribute("name", config.json["count_left"]-i-1)
+                    changeStartLedLeftContainer.appendChild(ledElement)
+                } else if(i < config.json["count_left"] + config.json["count_top"]){
+                    ledElement.setAttribute("name", i)
+                    changeStartLedTopContainer.appendChild(ledElement)
+                } else if(i < config.json["count_left"] + config.json["count_top"] + config.json["count_right"]){
+                    ledElement.setAttribute("name", i)
+                    changeStartLedRightContainer.appendChild(ledElement)
+                } else {
+                    ledElement.setAttribute("name", (config.getLedCount()+(config.json["count_left"] + config.json["count_top"] + config.json["count_right"]))-i-1)
+                    changeStartLedBottomContainer.appendChild(ledElement)
+                }
+                if(ledElement.getAttribute("name") == changeStartLedButton.value){
+                    ledElement.style.background = "green"
+                }
+            }
+
+            clearTimeout(timeout)
+            resolve()
+        } catch(e){
+            if(!timeoutReached){
+                clearTimeout(timeout)
+                reject(e)
+            }
+        }
+    })
+}
+
+function synchronizeStartLedInput(){
+    let changeStartLedInput = document.getElementById("changeStartLedInput")
+
+    changeStartLedInput.setAttribute("max", config.getLedCount().toString())
+
+    changeStartLedInput.value = parseInt(config.newOffset)+1
+    changeStartLedInput.setAttribute("name", changeStartLedInput.value-1)
+
+    changeStartLedInput.addEventListener("input", updateStartLed)
+}
+
+function updateStartLed(element){
+    element = element.srcElement
+    if(element.localName === "input"){
+        element.setAttribute("name", (element.value-1) >= 0 ? (element.value-1) <= config.getLedCount()-1 ? element.value-1 : config.getLedCount()-1 : 0)
     }
+    let oldStartLed = config.newOffset
+    let newStartLed = element.getAttribute("name")
+    document.getElementsByName(oldStartLed).forEach((ele) => {
+        if(ele.localName === "input"){
+            return
+        }
+        ele.style.background = "white"
+    })
+    document.getElementsByName(newStartLed).forEach((ele) => {
+        if(ele.localName === "input"){
+            return
+        }
+        ele.style.background = "green"
+    })
+    config.newOffset = parseInt(newStartLed)
+    synchronizeStartLedInput()
 }
 
 changeStartLedButton.addEventListener(("click"), async () => {
+    showLoadingPage()
+    config.newOffset = changeStartLedButton.value
+    await addStartLedButtons()
+    synchronizeStartLedInput()
     showChangeStartLedPage()
 })
 
@@ -414,3 +499,25 @@ resetConfigChangesButton.addEventListener("click", async () => {
     await config.loadProgramConfigInMemory()
     await config.setConfigValuesInTextFields()
 })
+
+function actionStartLedPage(element){
+    if(element.textContent === "OK"){
+        showLoadingPage()
+        changeStartLedButton.value = config.newOffset
+        showAmbilightPage()
+    } else if(element.textContent === "Anwenden"){
+        changeStartLedButton.value = config.newOffset
+    } else if(element.textContent === "Zurücksetzen"){
+        let originalStartLed
+        document.getElementsByName(changeStartLedButton.value).forEach((ele) => {
+            if(ele.localName === "input"){
+                return
+            }
+            originalStartLed = ele
+        })
+        originalStartLed.dispatchEvent(new Event("click"))
+    } else if(element.textContent === "Abbrechen"){
+        showLoadingPage()
+        showAmbilightPage()
+    }
+}

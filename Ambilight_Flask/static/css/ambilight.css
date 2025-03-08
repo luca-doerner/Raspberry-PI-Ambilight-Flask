@@ -1,7 +1,16 @@
 #ambilightPage {
     display: none;
-    grid-template-columns: repeat(1, 1fr);  /* 3 equal columns */
+    grid-template-columns: repeat(1, 1fr);  /* 1 equal columns */
     grid-template-rows: auto;  /* Adjust row height based on content */
+    gap: 15px;
+}
+
+#changeStartLedPage {
+    display: none;
+    width: 100%;
+    height: 60vh;
+    grid-template-columns: 1fr 8fr 1fr;  /* 3 equal columns */
+    grid-template-rows: 1fr 1fr 8fr 1fr;  /* Adjust row height based on content */
     gap: 15px;
 }
 
@@ -18,4 +27,42 @@
     align-self: center;
     border-color: black;
     border-radius: 8px;
+}
+
+.changeStartLedPageItem {
+    color: black;
+    text-align: center;
+    align-self: center;
+    border-color: black;
+    border-radius: 8px;
+}
+
+.verticalStretchedButtons {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    gap: 1px;
+}
+
+.horizontalStretchedButtons {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    gap: 1px
+}
+
+.changeStartLedButtons {
+    flex: 1;
+    background-color: white;
+    
+    border: 2px solid black;
+    display: block
+}
+
+#startLedDirectionArrow {
+    position: absolute;
+    bottom: 0px;
+    left: 0px;
+    width: 3vw;
 }

@@ -85,7 +85,30 @@
         </div>
     </div>
     <div id="changeStartLedPage">
+        <div></div>
+        <div class="changeStartLedPageItem">
+            <Button onclick="actionStartLedPage(this)">OK</Button>
+            <Button onclick="actionStartLedPage(this)">Anwenden</Button>
+            <Button onclick="actionStartLedPage(this)">Zurücksetzen</Button>
+            <Button onclick="actionStartLedPage(this)">Abbrechen</Button>
+        </div>
+        <div></div>
 
+        <div class="changeStartLedPageItem"></div>
+        <div class="changeStartLedPageItem horizontalStretchedButtons" id="changeStartLedTopContainer"></div>
+        <div class="changeStartLedPageItem"></div>
+
+        <div class="changeStartLedPageItem verticalStretchedButtons" id="changeStartLedLeftContainer"></div>
+        <div class="changeStartLedPageItem" style="position: relative; height: 100%; display: flex; align-items: center; justify-content: center; gap: 5px;">
+            <label for="changeStartLedInput">Anfangsled: </label>
+            <input type="number" min="0" id="changeStartLedInput">
+            <img src="https://image.freepik.com/freie-ikonen/pfeil-nach-oben_318-26628.jpg" id="startLedDirectionArrow">
+        </div>
+        <div class="changeStartLedPageItem verticalStretchedButtons" id="changeStartLedRightContainer"></div>
+
+        <div class="changeStartLedPageItem"></div>
+        <div class="changeStartLedPageItem horizontalStretchedButtons" id="changeStartLedBottomContainer"></div>
+        <div class="changeStartLedPageItem"></div>
     </div>
 </body>
 </html>
