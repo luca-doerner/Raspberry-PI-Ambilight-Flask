@@ -34,7 +34,7 @@ CONFIG_PATH = "FLASK_BASE_PATH/Ambilight_Flask/static/config.json"
 ################ Main Function #####################################################################
 # starts all processes
 if __name__ == "__main__":
-    print("Started " + MODE)
+
 
 ################ Configurations #####################################################################
     manager = mp.Manager()
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     WAIT = 0.0016
 
     # Initialize NeoPixel object
-    pixels = neopixel.NeoPixel(PIN, LED_COUNT, brightness=1, auto_write=False)
+    pixels = neopixel.NeoPixel(PIN, config.get("led_count"), brightness=1, auto_write=False)
 
 
     # queue elements

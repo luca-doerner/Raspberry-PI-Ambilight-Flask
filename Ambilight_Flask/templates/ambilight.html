@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Ambilight</title>
-    <script src="{{ url_for('static', filename='javascript/ambilight.js') }}" async></script>
+    <script type="module" src="{{ url_for('static', filename='javascript/ambilight.js') }}" async></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ambilight.css') }}">
 </head>
 <body>
     <div id="loadingPage">
         <h1>Loading...</h1>
     </div>
-    <div id="ambilightPage">
+    <div id="contentPage">
         <div class="ambilightPageRow">
             <div class="ambilightPageItem"></div>
             <Button class="ambilightPageItem" id="changeConfigButton">Änderungen Anwenden</Button>
@@ -87,10 +87,10 @@
     <div id="changeStartLedPage">
         <div></div>
         <div class="changeStartLedPageItem">
-            <Button onclick="actionStartLedPage(this)">OK</Button>
-            <Button onclick="actionStartLedPage(this)">Anwenden</Button>
-            <Button onclick="actionStartLedPage(this)">Zurücksetzen</Button>
-            <Button onclick="actionStartLedPage(this)">Abbrechen</Button>
+            <Button class="actionStartLedPageButton">OK</Button>
+            <Button class="actionStartLedPageButton">Anwenden</Button>
+            <Button class="actionStartLedPageButton">Zurücksetzen</Button>
+            <Button class="actionStartLedPageButton">Abbrechen</Button>
         </div>
         <div></div>
 
