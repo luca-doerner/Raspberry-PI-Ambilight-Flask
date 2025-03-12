@@ -30,8 +30,6 @@ window.onload = async () => {
     await config.loadProgramConfigInMemory()
     await config.setConfigValuesInTextFields()
 
-    changeStartLedButton.value = changeStartLedButton.value
-
     controller.showPage(contentPage)
 }
 

@@ -48,7 +48,7 @@ def getConfig():
 
 def updateValues(new_data, data):
     for key, value in new_data.items():
-        if(isinstance(new_data.get(key), dict)):
+        if isinstance(new_data.get(key), dict):
             data[key] = updateValues(new_data.get(key), data.get(key))
         else:
             data[key] = value
