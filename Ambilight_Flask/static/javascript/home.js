@@ -1,12 +1,15 @@
-let loadingPage = document.getElementById("loadingPage")
-let startPage = document.getElementById("startPage")
-let contentPage = document.getElementById("contentPage")
+import { Controller } from "./controller.js"
 
-let changeModeButton = document.getElementById("changeModeButton")
-let modeSelection = document.getElementById("modeSelection")
-let powerSwitch = document.getElementById("powerSwitch")
+const loadingPage = document.getElementById("loadingPage")
+const startPage = document.getElementById("startPage")
+const contentPage = document.getElementById("contentPage")
 
-let mode, power
+const changeModeButton = document.getElementById("changeModeButton")
+const modeSelection = document.getElementById("modeSelection")
+const powerSwitch = document.getElementById("powerSwitch")
+const configValues = document.querySelectorAll(".configValue")
+
+const controller = new Controller("", [loadingPage, startPage], configValues)
 
 
 //////////////////////// Fetch Functions ///////////////////////////////////////////////////////////
@@ -141,54 +144,49 @@ function showPage(){
     startPage.style.display = "grid"
 }
 
-async function loadScript(){
-    let jsonBody
-
-    if(powerSwitch.checked){
-        jsonBody = {
-            "power": "on"
-        }
-    } else{
-        jsonBody = {
-            "power": "off"
-        }
+async function setPowerSwitch(newPower){
+    if(newPower === "on"){
+        powerSwitch.checked = true
+        powerSwitch.value = "on"
+    } else if(newPower === "off"){
+        powerSwitch.checked = false
+        powerSwitch.value = "off"
     }
 
-    await updateConfig(jsonBody)
-    await loadConfig()
+}
+
+async function startMode(){
+    await config.updateConfig()
 
     updatePython(mode, jsonBody)
 }
 
+async function changeMode(){
+    await config.updateConfig()
+
+    
+}
+
 //////////////////////// Document Functions /////////////////////////////////////////////////////////
 window.onload = async () => {
-    showLoading()
+    controller.showPage(loadingPage)
 
-    await loadConfig()
+    await config.loadProgramConfig()
+    await config.setConfigValuesInTextFields()
+    setPowerSwitch(config.json["power"])
 
-    modeSelection.value = mode
-    powerSwitch.checked = power == "on" ? true : false
+    await loadPage("/" + config.json["mode"])
 
-    await loadScript()
-
-    await loadPage("/" + mode)
-    showPage()
+    controller.showPage(startPage)
 }
 
 changeModeButton.addEventListener("click", async () => {
-    modeSelection.style.color = "black"
 
-    let selectedMode = modeSelection.value
-
-    let jsonBody = {
-        "mode": selectedMode
-    }
 
     powerSwitch.checked = false
 
-    await updateConfig(jsonBody)
-    await loadConfig()
-    await loadScript()
+    setPowerSwitch(powerSwitch.checked === true ? "on" : "off")
+    await updateConfig()
 
     loadPage("/" + selectedMode)
 })
@@ -205,5 +203,6 @@ modeSelection.addEventListener("change", () => {
 })
 
 powerSwitch.addEventListener("change", async () => {
-    await loadScript()
+    await setPowerSwitch(powerSwitch.checked === true ? "on" : "off")
+    await startMode()
 })

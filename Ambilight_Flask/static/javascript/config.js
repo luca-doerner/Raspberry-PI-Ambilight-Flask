@@ -134,12 +134,16 @@ export class Config{
                 this.controller.configValues.forEach(textfield => {
                     textfield.value = this.json[textfield.name]
                 })
-                this.controller.sliders.forEach((element) => {
-                    element.dispatchEvent(new Event("input", this.controller.sliderToText))
-                })
-                this.controller.sliderTextFields.forEach((element) => {
-                    element.dispatchEvent(new Event("input", this.controller.textToSlider))
-                })
+                if(this.sliders != null){
+                    this.controller.sliders.forEach((element) => {
+                        element.dispatchEvent(new Event("input", this.controller.sliderToText))
+                    })
+                }
+                if(this.sliderTextFields != null){
+                    this.controller.sliderTextFields.forEach((element) => {
+                        element.dispatchEvent(new Event("input", this.controller.textToSlider))
+                    })
+                }
                 clearTimeout(timeout)
                 resolve()
             } catch(e){

@@ -26,7 +26,7 @@ const config = controller.config
 //////////////////////// Document Functions /////////////////////////////////////////////////////////
 window.onload = async () => {
     controller.showPage(loadingPage)
-    
+
     await config.loadProgramConfigInMemory()
     await config.setConfigValuesInTextFields()
 

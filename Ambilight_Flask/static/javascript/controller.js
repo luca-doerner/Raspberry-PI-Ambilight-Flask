@@ -61,7 +61,11 @@ export class Controller{
                     return response.json()
                 })
                 .then(newConfig => {
-                    this.config.setConfigValuesInMemory(newConfig[this.mode])
+                    if(this.mode === ""){
+                        this.config.setConfigValuesInMemory(newConfig)
+                    } else {
+                        this.config.setConfigValuesInMemory(newConfig[this.mode])
+                    }
                     console.log({"message": "Succesfully loaded " + this.config.json["name"] + " Config!", "data": this.config.json})
                     clearTimeout(timeout)
                     resolve()

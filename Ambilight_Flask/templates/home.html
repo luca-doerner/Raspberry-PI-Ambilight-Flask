@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Luca seine LEDs</title>
-    <script src="{{ url_for('static', filename='javascript/home.js') }}" async></script>
+    <script type="module" src="{{ url_for('static', filename='javascript/home.js') }}" async></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
 </head>
 <body>
@@ -14,13 +14,13 @@
     <div id="startPage">
         <div class="startPageItem">Power</div>
         <div class="startPageItem">
-            <input type="checkbox" name="powerSwitch" id="powerSwitch">
+            <input type="checkbox" class="configValue" name="power" id="powerSwitch">
         </div>
         <div class="startPageItem" id="powerStatus"></div>
 
         <div class="startPageItem">Modus</div>
         <div class="startPageItem">
-            <select name="modeSelection" id="modeSelection">
+            <select name="mode" id="modeSelection" class="configValue">
                 <option value="ambilight" id="ambilightSelect">Ambilight</option>
                 <option value="staticColor" id="staticColorSelect">Static Color</option>
             </select>
