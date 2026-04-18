@@ -1,5 +1,5 @@
 # Multi-stage build für optimierte Größe
-FROM python:3.11-slim-bullseye as builder
+FROM python:3.11-slim-bullseye AS builder
 
 # Installiere Build-Abhängigkeiten
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -23,13 +23,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-imgproc4.5 \
     libopencv-highgui4.5 \
     libatlas-base-dev \
-    libjasper-dev \
     libtiff-dev \
-    libjasper1 \
     libharfbuzz0b \
     libwebp6 \
     libtiff5 \
-    libjasper1 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Kopiere installierte Python-Pakete vom Builder
