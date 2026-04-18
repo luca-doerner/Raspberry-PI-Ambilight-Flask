@@ -1,26 +1,64 @@
 - name: Deploy Application
   hosts: raspberrypi
   become: yes
+  vars:
+    docker_image: "ghcr.io/{{ github_repo_owner }}/ambilight-flask:latest"
+    container_name: "ambilight-flask"
+    container_port: "5000"
   tasks:
-#    - name: Set environment variable in /etc/environment
-#      lineinfile:
-#        path: /etc/environment
-#        regexp: '^FLASK_BASE_PATH='
-#        line: "FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
-#    - name: Set environment variable in ~/.bashrc
-#      lineinfile:
-#        path: "~/.bashrc"
-#        regexp: '^export FLASK_BASE_PATH='
-#        line: "export FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
-#    - name: Setze FLASK_BASE_PATH in venv/bin/activate
-#      lineinfile:
-#        path: "{{ lookup('env', 'FLASK_BASE_PATH') }}/venv/bin/activate"
-#        regexp: '^export FLASK_BASE_PATH='
-#        line: "export FLASK_BASE_PATH={{ lookup('env', 'FLASK_BASE_PATH') }}"
-    - name: Deploy Application
-      copy:
-        src: ../Ambilight_Flask
-        dest: /home/luca/
-        owner: luca
-        group: luca
+    - name: Ensure Docker is installed
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Ensure user is in docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Log in to GitHub Container Registry
+      shell: echo "{{ github_token }}" | docker login ghcr.io -u {{ github_repo_owner }} --password-stdin
+      environment:
+        github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('') }}"
+      no_log: true
+      when: github_token is defined and github_token != ''
+      ignore_errors: yes
+
+    - name: Stop existing container if running
+      docker_container:
+        name: "{{ container_name }}"
+        state: stopped
+      ignore_errors: yes
+
+    - name: Remove old container if exists
+      docker_container:
+        name: "{{ container_name }}"
+        state: absent
+      ignore_errors: yes
+
+    - name: Pull latest Docker image
+      docker_image:
+        name: "{{ docker_image }}"
+        source: pull
+        force_source: yes
+
+    - name: Run Docker container
+      docker_container:
+        name: "{{ container_name }}"
+        image: "{{ docker_image }}"
+        state: started
+        privileged: yes
+        ports:
+          - "{{ container_port }}:5000"
+        restart_policy: always
+        volumes:
+          - /opt/ambilight:/app/logs
+        env:
+          FLASK_ENV: production
+
+    - name: Clean up old unused images
+      shell: docker image prune -f
+      ignore_errors: yes
       
