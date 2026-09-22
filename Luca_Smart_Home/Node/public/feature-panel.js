@@ -209,8 +209,12 @@ function renderService(container, feature, { onFeaturesChanged }) {
 
     async function poll() {
         try {
+            const before = [state.active, state.running];
             state = await api(`/api/features/${feature.id}/state`);
             showState();
+            // e.g. the program crashed: the dot in the tab changes at once
+            if (before[0] !== state.active || before[1] !== state.running)
+                onFeaturesChanged();
         } catch {
             status.textContent = "Server nicht erreichbar";
             status.classList.remove("on");

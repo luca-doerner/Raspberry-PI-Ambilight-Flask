@@ -3,6 +3,7 @@ import { api, el, errorBox, icon } from "./lib.js";
 import { renderFeature } from "./feature-panel.js";
 
 const EXPANDED_KEY = "smarthome.expanded";
+const DEVICE_POLL_MS = 5000;   // how often the dots of the feature tabs are updated
 const main = document.getElementById("main");
 const sidebar = document.getElementById("sidebar");
 
@@ -213,14 +214,23 @@ function selectedFeature(features) {
         ?? features[0];
 }
 
-// services have a dot: green = started; a click shows the feature without loading the page again
+// dot of a service: "on" = running, "failed" = started but the program does not run, "" = stopped
+function serviceDot(feature) {
+    if (feature.running)
+        return { state: "on", text: "läuft" };
+    if (feature.active)
+        return { state: "failed", text: `gestartet, läuft aber nicht (${feature.message})` };
+    return { state: "", text: "gestoppt" };
+}
+
+// services have a dot (serviceDot); a click shows the feature without loading the page again
 // (onSelect), ctrl / middle click still opens the link in a new tab
 function featureTabs(device, selected, onSelect) {
     return el("nav", { class: "tabs", "aria-label": "Features" },
         device.features.map((f) => el("a", {
             class: "tab", href: `/devices/${device.id}?feature=${f.id}`,
             "aria-current": f.id === selected.id ? "page" : null,
-            title: f.kind === "service" ? `${f.name}: ${f.active ? "gestartet" : "gestoppt"}` : f.name,
+            title: f.kind === "service" ? `${f.name}: ${serviceDot(f).text}` : f.name,
             onclick(event) {
                 if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
                     return;
@@ -231,7 +241,7 @@ function featureTabs(device, selected, onSelect) {
                 onSelect(f.id);
             },
         },
-        f.kind === "service" ? el("span", { class: `dot${f.active ? " on" : ""}`, "aria-hidden": "true" }) : null,
+        f.kind === "service" ? el("span", { class: `dot ${serviceDot(f).state}`, "aria-hidden": "true" }) : null,
         f.name)));
 }
 
@@ -299,11 +309,16 @@ async function renderDevicePage(device) {
     let cleanup = () => {};
     const showTabs = () => tabsSlot.replaceChildren(featureTabs(device, selected, showFeature));
 
-    // after start / stop, other exclusive services may have been stopped: update the dots
+    // after start / stop other exclusive services may have been stopped, and a program can fail
+    // or crash at any time: update the dots when something changed
+    const dots = () => JSON.stringify(device.features.map((f) => [f.id, f.active, f.running, f.message]));
     async function onFeaturesChanged() {
+        const before = dots();
         device = await api(`/api/devices/${device.id}`);
-        showTabs();
+        if (dots() !== before)
+            showTabs();
     }
+    setInterval(() => onFeaturesChanged().catch(() => {}), DEVICE_POLL_MS);
 
     // loads only the panel of the feature, the old panel stays (dimmed) until the new one is there
     async function showFeature(featureId) {

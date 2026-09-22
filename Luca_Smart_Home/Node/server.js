@@ -119,7 +119,15 @@ const ROUTES = [
         pinned: await smarthome.getPinned(),
     })],
     ["GET", /^\/api\/rooms\/(\d+)$/, async (req, res, id) => sendJson(res, 200, await smarthome.getRoom(Number(id)))],
-    ["GET", /^\/api\/devices\/(\d+)$/, async (req, res, id) => sendJson(res, 200, await smarthome.getDevice(Number(id)))],
+    // features with running / message, so the page can tell "started" from "really running"
+    ["GET", /^\/api\/devices\/(\d+)$/, async (req, res, id) => {
+        const device = await smarthome.getDevice(Number(id));
+        device.features = device.features.map((feature) => {
+            const { running, message } = features.state(feature.id);
+            return { ...feature, running, message };
+        });
+        sendJson(res, 200, device);
+    }],
     ["POST", /^\/api\/devices\/(\d+)\/pinned$/, async (req, res, id) => {
         const { pinned } = await readJson(req);
         if (typeof pinned !== "boolean")

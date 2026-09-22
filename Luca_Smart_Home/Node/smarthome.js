@@ -238,9 +238,11 @@ async function setFeatureActive(id, active, onChange) {
         await client.query("UPDATE features SET active = $2 WHERE id = $1", [id, active]);
         await client.query("COMMIT");
 
+        // the feature itself is always passed on: "start" again also starts a service that is
+        // active but crashed, "stop" also stops a program that still runs
         const after = (f) => f.id === id ? active : (active && feature.exclusive ? false : f.active);
         changes = before
-            .filter((f) => after(f) !== f.active)
+            .filter((f) => f.id === id || after(f) !== f.active)
             .map((f) => ({ id: f.id, active: after(f) }))
             .sort((a, b) => a.active - b.active);
     } catch (err) {

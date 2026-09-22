@@ -464,6 +464,12 @@ code {
     border-color: var(--on);
 }
 
+/* started, but the program does not run */
+.dot.failed {
+    background: var(--error-text);
+    border-color: var(--error-text);
+}
+
 /*************** Power Switch *****************************************************************/
 .power {
     display: flex;
