@@ -3,7 +3,7 @@
   become: yes
   vars:
     smart_home_dir: "/home/{{ ansible_user }}/Luca_Smart_Home"
-    smart_home_service: ambilight-web
+    smart_home_service: luca-smart-home
     smart_home_port: 5000
   tasks:
     - name: Ensure build-essential and node are installed
