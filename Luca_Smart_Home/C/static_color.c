@@ -1,99 +1,85 @@
-#include <stdio.h>
-#include <stdlib.h>
+/*
+ * static_color.c - setzt alle LEDs auf eine feste Farbe (Feature-Art "oneshot").
+ *
+ * Der Server übergibt beim Ausführen alle Geräte- und Feature-Einstellungen als --name=wert:
+ *   sudo ./static_color --led_count_left=37 ... --power=on --color=#ff8800 --brightness=255
+ * Unbekannte Einstellungen werden ignoriert.
+ *
+ * Bauen: make
+ */
 #include <getopt.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <ws2811/ws2811.h>
+#include "leds.h"
 
-#define LED_STRIP        WS2811_STRIP_GRB
+// eigene Optionen, andere Zahlen als die in leds.h (OPT_LED_* ab 1001)
+#define OPT_POWER      2001
+#define OPT_COLOR      2002
+#define OPT_BRIGHTNESS 2003
 
 int main(int argc, char *argv[]) {
-    char* power = "off";
-    unsigned red = 0, green = 0, blue = 0;
-    uint8_t brightness = 0;
-    int led_pin = 18;
-    int led_dma = 10;
-    int led_count = 220;
+    // Geräte-Einstellungen (Anzahl LEDs, Pin, DMA) aus der Kommandozeile
+    led_config_t config = load_config(argc, argv);
 
+    const char *power = "on";
+    unsigned red = 255, green = 255, blue = 255;   // weiß, falls keine Farbe kommt
+    int brightness = 255;
 
     static struct option long_options[] = {
-        {"power", required_argument, 0, 'P'},
-        {"color", required_argument, 0, 'c'},
-        {"brightness", required_argument, 0, 'B'},
-        {"led-pin", required_argument, 0, 'p'},
-        {"led-dma", required_argument, 0, 'd'},
-        {"led-count", required_argument, 0, 'c'},
+        {"power", required_argument, 0, OPT_POWER},
+        {"color", required_argument, 0, OPT_COLOR},
+        {"brightness", required_argument, 0, OPT_BRIGHTNESS},
         {0, 0, 0, 0}
     };
 
-    int option_index = 0;
+    opterr = 0;   // unbekannte Optionen nicht melden
     int opt;
-    while ((opt = getopt_long(argc, argv, "P:r:g:b:B:p:d:c:", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
         switch (opt) {
-            case 'P':
+            case OPT_POWER:
                 power = optarg;
                 break;
-            case 'c':
+            case OPT_COLOR:
                 if (sscanf(optarg, "#%2x%2x%2x", &red, &green, &blue) != 3) {
                     fprintf(stderr, "Ungültige Farbe: %s\n", optarg);
-                    return 1;
+                    return EXIT_FAILURE;
                 }
                 break;
-            case 'B':
-                brightness = (uint8_t)atoi(optarg);
-                break;
-            case 'p':
-                led_pin = atoi(optarg);
-                break;
-            case 'd':
-                led_dma = atoi(optarg);
-                break;
-            case 'c':
-                led_count = atoi(optarg);
+            case OPT_BRIGHTNESS:
+                brightness = atoi(optarg);
                 break;
             default:
-                printf("%d mit Wert %s unbekannt\n", opt, optarg);
-                break;
+                break;   // Einstellung eines anderen Features
         }
     }
 
-    ws2811_t strip = {
-        .freq = WS2811_TARGET_FREQ,
-        .dmanum = led_dma,
-        .channel = {
-            [0] = { .gpionum = led_pin, .count = led_count, .invert = 0, .brightness = brightness, .strip_type = LED_STRIP },
-            [1] = { .gpionum = 0, .count = 0, .invert = 0, .brightness = 0 },
-        },
-    };
-
-    ws2811_return_t ret = ws2811_init(&strip);
-    if(ret != WS2811_SUCCESS) {
-        fprintf(stderr, "ws2811_init failed: %s\n", ws2811_get_return_t_str(ret));
+    if (config.led_count < 1) {
+        fprintf(stderr, "Keine LEDs: led_count_left/top/right/bottom angeben\n");
+        return EXIT_FAILURE;
+    }
+    if (brightness < 0 || brightness > 255) {
+        fprintf(stderr, "brightness muss zwischen 0 und 255 liegen\n");
         return EXIT_FAILURE;
     }
 
-    if(strcmp(power, "on") != 0) {
-        for(int i = 0; i < led_count; i++) {
-            strip.channel[0].leds[i] = 0;
-        }
-        ws2811_render(&strip);
-        ws2811_wait(&strip);
+    ws2811_t strip;
+    if (leds_init(&strip, config.led_count, config.led_pin, config.led_dma, brightness) < 0)
+        return EXIT_FAILURE;
 
-        printf("%d LEDS ausgeschaltet", led_count);
-
-    } else {
-        ws2811_led_t color = ((uint32_t)red << 16) | ((uint32_t)green << 8) | blue;
-
-        for(int i = 0; i < led_count; i++) {
-            strip.channel[0].leds[i] = color;
-        }
-        ws2811_render(&strip);
-        ws2811_wait(&strip);
-
-        printf("%d LEDS auf RGB(%d, %d, %d) gesetzt", led_count, red, green, blue);
-    }
+    // "off" heißt schwarz, ein echtes Aus kennen WS2812-LEDs nicht
+    int on = strcmp(power, "on") == 0;
+    if (on)
+        leds_fill(&strip, red, green, blue);
+    else
+        leds_off(&strip);
+    if (on)
+        printf("%d LEDs auf #%02x%02x%02x gesetzt (Helligkeit %d)\n",
+               config.led_count, red, green, blue, brightness);
+    else
+        printf("%d LEDs ausgeschaltet\n", config.led_count);
 
     ws2811_fini(&strip);
-
-    return 0;
+    return EXIT_SUCCESS;
 }

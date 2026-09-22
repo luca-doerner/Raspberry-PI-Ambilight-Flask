@@ -31,23 +31,32 @@ void leds_fill(ws2811_t *strip, uint8_t red, uint8_t green, uint8_t blue) {
     ws2811_wait(strip);
 }
 
+// schaltet die LEDs aus (schwarz); das Aufräumen macht der Aufrufer mit ws2811_fini
 void leds_off(ws2811_t *strip) {
     memset(strip->channel[0].leds, 0, strip->channel[0].count * sizeof(ws2811_led_t));
     ws2811_render(strip);
     ws2811_wait(strip);
-    ws2811_fini(strip);
 }
 
 led_config_t load_config(int argc, char *argv[]) {
-    led_config_t config;
+    // Startwerte, falls eine Einstellung nicht übergeben wird
+    led_config_t config = {
+        .led_count_left = 0,
+        .led_count_top = 0,
+        .led_count_right = 0,
+        .led_count_bottom = 0,
+        .led_pin = DEFAULT_LED_PIN,
+        .led_dma = DEFAULT_LED_DMA,
+    };
 
+    // Namen mit Unterstrich: genau so heißen die Einstellungen in der Datenbank
     static struct option long_options[] = {
         {"led_count_left", required_argument, 0, OPT_LED_COUNT_LEFT},
         {"led_count_top", required_argument, 0, OPT_LED_COUNT_TOP},
         {"led_count_right", required_argument, 0, OPT_LED_COUNT_RIGHT},
         {"led_count_bottom", required_argument, 0, OPT_LED_COUNT_BOTTOM},
-        {"led-pin", required_argument, 0, OPT_LED_PIN},
-        {"led-dma", required_argument, 0, OPT_LED_DMA},
+        {"led_pin", required_argument, 0, OPT_LED_PIN},
+        {"led_dma", required_argument, 0, OPT_LED_DMA},
         {0, 0, 0, 0}
     };
 

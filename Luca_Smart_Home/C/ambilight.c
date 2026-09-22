@@ -1,25 +1,29 @@
 /*
- * ambilight.c - C port of static/python/ambilight.py
+ * ambilight.c - Feature-Art "service": liest Bilder vom HDMI-Capture-Stick (V4L2), nimmt die
+ * Farben an den vier Bildrändern, glättet sie und schickt sie an den WS281x-Streifen.
  *
- * Reads frames from an HDMI capture stick (V4L2), samples the colors along the
- * four screen edges, smooths them and sends them to a WS281x LED strip on GPIO 18.
- * Single-threaded, the configuration is compiled in as constants.
+ * Einstellungen kommen vom Server:
+ *   beim Start als --name=wert (Geräte-Einstellungen über load_config aus leds.c, danach die
+ *   Feature-Einstellungen), im Betrieb als UDP-Nachricht "name: wert" auf Port 9000.
+ * Unbekannte Einstellungen werden ignoriert.
  *
- * Dependencies (on the Raspberry Pi):
+ * Dependencies (auf dem Raspberry Pi):
  *   sudo apt install build-essential cmake git
  *   git clone https://github.com/jgarff/rpi_ws281x
  *   cd rpi_ws281x && cmake -B build && cmake --build build && sudo cmake --install build
  *
- * Build:  make
- * Run:    sudo ./ambilight      (root is needed for the DMA/PWM access of rpi_ws281x)
+ * Bauen:  make
+ * Start:  sudo ./ambilight     (root wird für DMA/PWM von rpi_ws281x gebraucht)
  */
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <math.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -33,10 +37,8 @@
 
 #include "leds.h"
 
-/*************** Configuration (values from config.json) ******************************************/
-#define BRIGHTNESS       1
-
 /*************** Global Variables *****************************************************************/
+#define UDP_PORT         9000           // the server sends the live settings here
 #define CAP_WIDTH        640
 #define CAP_HEIGHT       480
 #define CAP_MAX_BUFFERS  4
@@ -54,11 +56,20 @@
 #define DARK_GAMMA       0.2
 
 /*************** Changeable Variables *****************************************************************/
-int black_grid_w = 9, black_grid_h;
+// Startwerte, solange der Server nichts anderes schickt (Kommandozeile beim Start, danach UDP)
+int black_grid_w = 9, black_grid_h = 37;
 
 // Feature Variablen
-double brightness, smooth_ratio, dark_gamma;
-unsigned resize_size, distance_left, distance_top, distance_right, distance_bottom;
+double brightness = 0.7, smooth_ratio = 0.85, dark_gamma = 0.2;
+int resize_size = 18, distance_left = 1, distance_top = 1, distance_right = 1, distance_bottom = 1;
+
+// Namen der Einstellungen, Reihenfolge passt zu OPT_SETTING_BASE (siehe main)
+#define OPT_SETTING_BASE 3001
+static const char *SETTING_NAMES[] = {
+    "brightness", "smooth_ratio", "dark_gamma", "resize_size",
+    "distance_left", "distance_top", "distance_right", "distance_bottom",
+};
+#define SETTING_COUNT ((int)(sizeof SETTING_NAMES / sizeof *SETTING_NAMES))
 
 typedef struct {
     int fd;
@@ -92,8 +103,56 @@ static inline uint8_t clamp_u8(int v) {
 
 // source index that cv2.resize(..., interpolation=cv2.INTER_NEAREST) picks for destination index i
 static inline int nearest(int i, int src_size, int dst_size) {
+    if (dst_size < 1)                    // never divide by zero
+        return 0;
     int s = (int)((long)i * src_size / dst_size);
     return s < src_size ? s : src_size - 1;
+}
+
+static inline int clamp_int(int value, int low, int high) {
+    return value < low ? low : value > high ? high : value;
+}
+
+// takes one setting, from the command line at the start and from UDP later;
+// returns 0 if the name is unknown or the value does not fit
+static int set_setting(const char *name, int value) {
+    if (strcmp(name, "brightness") == 0 && value >= 0 && value <= 100)
+        brightness = value / 100.0;          // the page sends percent
+    else if (strcmp(name, "smooth_ratio") == 0 && value >= 0 && value <= 100)
+        smooth_ratio = value / 100.0;
+    else if (strcmp(name, "dark_gamma") == 0 && value >= 0 && value <= 100)
+        dark_gamma = value / 100.0;
+    else if (strcmp(name, "resize_size") == 0 && value >= 1)
+        resize_size = value;
+    else if (strcmp(name, "distance_left") == 0 && value >= 0)
+        distance_left = value;
+    else if (strcmp(name, "distance_top") == 0 && value >= 0)
+        distance_top = value;
+    else if (strcmp(name, "distance_right") == 0 && value >= 0)
+        distance_right = value;
+    else if (strcmp(name, "distance_bottom") == 0 && value >= 0)
+        distance_bottom = value;
+    else
+        return 0;
+    return 1;
+}
+
+// the feature settings from the command line (--brightness=70 ...), the device settings are
+// already read by load_config; unknown settings of other features are ignored
+static void load_settings(int argc, char *argv[]) {
+    struct option options[SETTING_COUNT + 1];
+    for (int i = 0; i < SETTING_COUNT; i++)
+        options[i] = (struct option){ SETTING_NAMES[i], required_argument, 0, OPT_SETTING_BASE + i };
+    options[SETTING_COUNT] = (struct option){ 0, 0, 0, 0 };
+
+    opterr = 0;
+    int opt;
+    while ((opt = getopt_long(argc, argv, "", options, NULL)) != -1) {
+        int index = opt - OPT_SETTING_BASE;
+        if (index >= 0 && index < SETTING_COUNT && !set_setting(SETTING_NAMES[index], atoi(optarg)))
+            fprintf(stderr, "Ungültiger Wert für %s: %s\n", SETTING_NAMES[index], optarg);
+    }
+    optind = 1;   // damit weitere Durchläufe wieder von vorn anfangen
 }
 
 /*************** Capture **************************************************************************/
@@ -205,11 +264,13 @@ static void calc_color_arr(const capture_t *cap, const uint8_t *frame, int bar, 
     int n = 0;
 
     // nearest() picks the left/top edge of a grid cell, so index resize_size - d is as far
-    // from the right/bottom border as index d is from the left/top border
-    int x_left = nearest(distance_left, w, resize_size);
-    int y_top = top + nearest(distance_top, h, resize_size);
-    int x_right = nearest(resize_size - distance_right, w, resize_size);
-    int y_bottom = top + nearest(resize_size - distance_bottom, h, resize_size);
+    // from the right/bottom border as index d is from the left/top border;
+    // clamp_int: a distance bigger than resize_size would read outside the frame
+    int steps = resize_size < 1 ? 1 : resize_size;
+    int x_left = nearest(clamp_int(distance_left, 0, steps), w, steps);
+    int y_top = top + nearest(clamp_int(distance_top, 0, steps), h, steps);
+    int x_right = nearest(steps - clamp_int(distance_right, 0, steps), w, steps);
+    int y_bottom = top + nearest(steps - clamp_int(distance_bottom, 0, steps), h, steps);
 
     // left: column x_left, bottom to top
     for (int i = config->led_count_left - 1; i >= 0; i--)
@@ -319,28 +380,29 @@ int main(int argc, char *argv[]) {
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
 
+    // Geräte-Einstellungen (Anzahl LEDs, Pin, DMA) und Feature-Einstellungen der Kommandozeile
     led_config_t config = load_config(argc, argv);
+    load_settings(argc, argv);
+    if (config.led_count < 1) {
+        fprintf(stderr, "Keine LEDs: led_count_left/top/right/bottom angeben\n");
+        return 1;
+    }
+    black_grid_h = config.led_count_left > 0 ? config.led_count_left : black_grid_h;
 
     rgb_t new_pixels[config.led_count];
     rgb_t old_pixels[config.led_count];
-
-    ws2811_t strip = {
-        .freq = WS2811_TARGET_FREQ,
-        .dmanum = config.led_dma,
-        .channel = {
-            [0] = { .gpionum = config.led_pin, .count = config.led_count, .invert = 0, .brightness = 255, .strip_type = LED_STRIP },
-            [1] = { .gpionum = 0, .count = 0, .invert = 0, .brightness = 0 },
-        },
-    };
+    memset(new_pixels, 0, sizeof new_pixels);
+    memset(old_pixels, 0, sizeof old_pixels);
 
     // Initialize Socket
     int s = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
-        .sin_port = htons(9000),
+        .sin_port = htons(UDP_PORT),
         .sin_addr.s_addr = htonl(INADDR_LOOPBACK)
     };
-    bind(s, (struct sockaddr *)&addr, sizeof addr);
+    if (s < 0 || bind(s, (struct sockaddr *)&addr, sizeof addr) < 0)
+        fprintf(stderr, "UDP-Port %d nicht verfügbar, Einstellungen kommen nur beim Start an\n", UDP_PORT);
     char sock_buf[64];
 
     // Initialize Capture Device
@@ -355,40 +417,24 @@ int main(int argc, char *argv[]) {
     printf("Started Ambilight (%dx%d, %d LEDs)\n", cap.width, cap.height, config.led_count);
 
     // Initialize LED strip
-    ws2811_return_t ret = ws2811_init(&strip);
-    if (ret != WS2811_SUCCESS) {
-        fprintf(stderr, "ws2811_init fehlgeschlagen: %s\n", ws2811_get_return_t_str(ret));
+    ws2811_t strip;
+    if (leds_init(&strip, config.led_count, config.led_pin, config.led_dma, 255) < 0) {
         close_capture(&cap);
         return 1;
     }
 
     int exit_code = 0;
     while (running) {
-        // reload configuration
+        // Einstellungen vom Server: eine Nachricht je Zeile "name: wert"
         ssize_t n;
         while ((n = recv(s, sock_buf, sizeof sock_buf - 1, 0)) > 0) {
-            sock_buf[n] = '\0'; // Null-terminate the received data
-            unsigned int value;
-            if (sscanf(sock_buf, "brightness: %d", &value) == 1 && value <= 100) {
-                brightness = value / 100.0;
-            } else if (sscanf(sock_buf, "smooth_ratio: %d", &value) == 1 && value <= 100) {
-                smooth_ratio = value / 100.0;
-            } else if (sscanf(sock_buf, "dark_gamma: %d", &value) == 1 && value <= 100) {
-                dark_gamma = value / 100.0;
-            } else if (sscanf(sock_buf, "resize_size: %d", &value) == 1) {
-                resize_size = value;
-            } else if (sscanf(sock_buf, "distance_left: %d", &value) == 1) {
-                distance_left = value;
-            } else if (sscanf(sock_buf, "distance_right: %d", &value) == 1) {
-                distance_right = value;
-            } else if (sscanf(sock_buf, "distance_top: %d", &value) == 1) {
-                distance_top = value;
-            } else if (sscanf(sock_buf, "distance_bottom: %d", &value) == 1 ) {
-                distance_bottom = value;
-            } else {
-                printf("Unknown configuration: %s\n", sock_buf);
-            }
-            printf("Configuration updated: %s\n", sock_buf);
+            sock_buf[n] = '\0';
+            char name[32];
+            int value;
+            if (sscanf(sock_buf, "%31[a-z_]: %d", name, &value) == 2 && set_setting(name, value))
+                printf("Einstellung übernommen: %s = %d\n", name, value);
+            else
+                printf("Unbekannte oder ungültige Einstellung: %s\n", sock_buf);
         }
 
         struct v4l2_buffer buf;
@@ -411,7 +457,7 @@ int main(int argc, char *argv[]) {
             memset(old_pixels, 0, sizeof old_pixels);
 
         get_smooth_color(strip.channel[0].leds, new_pixels, old_pixels, &config);
-        ret = ws2811_render(&strip);
+        ws2811_return_t ret = ws2811_render(&strip);
         if (ret != WS2811_SUCCESS) {
             fprintf(stderr, "ws2811_render fehlgeschlagen: %s\n", ws2811_get_return_t_str(ret));
             exit_code = 1;
