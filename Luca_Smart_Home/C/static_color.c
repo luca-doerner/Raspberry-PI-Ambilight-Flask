@@ -2,17 +2,13 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <stdint.h>
+#include <string.h>
 #include <ws2811/ws2811.h>
 
 #define LED_STRIP        WS2811_STRIP_GRB
 
-typedef struct {
-    uint8_t red;
-    uint8_t green;
-    uint8_t blue;
-} rgb_t;
-
 int main(int argc, char *argv[]) {
+    char* power = "off";
     uint8_t red = 0;
     uint8_t green = 0;
     uint8_t blue = 0;
@@ -23,6 +19,7 @@ int main(int argc, char *argv[]) {
 
 
     static struct option long_options[] = {
+        {"power", required_argument, 0, 'P'},
         {"red", required_argument, 0, 'r'},
         {"green", required_argument, 0, 'g'},
         {"blue", required_argument, 0, 'b'},
@@ -35,8 +32,11 @@ int main(int argc, char *argv[]) {
 
     int option_index = 0;
     int opt;
-    while ((opt = getopt_long(argc, argv, "r:g:b:B:p:d:c:", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "P:r:g:b:B:p:d:c:", long_options, &option_index)) != -1) {
         switch (opt) {
+            case 'P':
+                power = optarg;
+                break;
             case 'r':
                 red = (uint8_t)atoi(optarg);
                 break;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
                 led_count = atoi(optarg);
                 break;
             default:
-                printf("%s mit Wert %s unbekannt\n", opt, optarg);
+                printf("%d mit Wert %s unbekannt\n", opt, optarg);
                 break;
         }
     }
@@ -73,23 +73,32 @@ int main(int argc, char *argv[]) {
         },
     };
 
-    rgb_t color = {red, green, blue};
-
     ws2811_return_t ret = ws2811_init(&strip);
     if(ret != WS2811_SUCCESS) {
         fprintf(stderr, "ws2811_init failed: %s\n", ws2811_get_return_t_str(ret));
         return EXIT_FAILURE;
     }
 
-    ws2811_led_t color = ((uint32_t)red << 16) | ((uint32_t)green << 8) | blue;
+    if(strcmp(power, "on") != 0) {
+        for(int i = 0; i < led_count; i++) {
+            strip.channel[0].leds[i] = 0;
+        }
+        ws2811_render(&strip);
+        ws2811_wait(&strip);
 
-    for(int i = 0; i < led_count; i++) {
-        strip.channel[0].leds[i] = color;
+        printf("%d LEDS ausgeschaltet", led_count);
+
+    } else {
+        ws2811_led_t color = ((uint32_t)red << 16) | ((uint32_t)green << 8) | blue;
+
+        for(int i = 0; i < led_count; i++) {
+            strip.channel[0].leds[i] = color;
+        }
+        ws2811_render(&strip);
+        ws2811_wait(&strip);
+
+        printf("%d LEDS auf RGB(%d, %d, %d) gesetzt", led_count, red, green, blue);
     }
-    ws2811_render(&strip);
-    ws2811_wait(&strip);
-
-    printf("%d LEDS auf RGB(%d, %d, %d) gesetzt", led_count, red, green, blue)
 
     ws2811_fini(&strip);
 

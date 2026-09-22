@@ -137,7 +137,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS features_one_active_exclusive ON features (dev
 CREATE TABLE IF NOT EXISTS setting_definitions (
     feature_id       BIGINT NOT NULL REFERENCES features (id) ON DELETE CASCADE,
     -- key for the database, UDP and the command line, e.g. "brightness"
-    name             TEXT NOT NULL CHECK (name ~ '^[a-z][a-z0-9_]*$'),
+    name             TEXT NOT NULL CHECK (name ~ '^[a-z][a-z0-9_-]*$'),
     label            TEXT NOT NULL,     -- shown on the page, e.g. "Helligkeit"
     -- range: slider, number: number field, boolean: switch, text, select: list of options,
     -- button_select: one button per option, color: #rrggbb (allowed types: see the constraint below)
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS settings (
 -- Same columns as setting_definitions, without restart_required (they always need a restart).
 CREATE TABLE IF NOT EXISTS device_setting_definitions (
     device_id     BIGINT NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
-    name          TEXT NOT NULL CHECK (name ~ '^[a-z][a-z0-9_]*$'),
+    name          TEXT NOT NULL CHECK (name ~ '^[a-z][a-z0-9_-]*$'),
     label         TEXT NOT NULL,
     type          TEXT NOT NULL,
     default_value JSONB NOT NULL,
