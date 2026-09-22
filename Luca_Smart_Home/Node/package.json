@@ -1,0 +1,13 @@
+{
+  "name": "ambilight-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web interface to start/stop the C ambilight program and send settings via UDP",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16.9"
+  }
+}

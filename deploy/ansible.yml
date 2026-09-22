@@ -1,64 +1,87 @@
-- name: Deploy Application
+- name: Deploy Application direct
   hosts: raspberrypi
   become: yes
   vars:
-    docker_image: "ghcr.io/{{ github_repo_owner }}/ambilight-flask:latest"
-    container_name: "ambilight-flask"
-    container_port: "5000"
+    smart_home_dir: "/home/{{ ansible_user }}/Luca_Smart_Home"
+    smart_home_service: ambilight-web
+    smart_home_port: 5000
   tasks:
-    - name: Ensure Docker is installed
+    - name: Ensure build-essential and node are installed
       apt:
-        name: docker.io
+        name:
+          - build-essential
+          - nodejs
+          - npm
         state: present
         update_cache: yes
+        
+    ################ Stop the running Node server ################
+    - name: Gather services
+      service_facts:
 
-    - name: Ensure user is in docker group
-      user:
-        name: "{{ ansible_user }}"
-        groups: docker
-        append: yes
-
-    - name: Log in to GitHub Container Registry
-      shell: echo "{{ github_token }}" | docker login ghcr.io -u {{ github_repo_owner }} --password-stdin
-      environment:
-        github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('') }}"
-      no_log: true
-      when: github_token is defined and github_token != ''
-      ignore_errors: yes
-
-    - name: Stop existing container if running
-      docker_container:
-        name: "{{ container_name }}"
+    # SIGTERM lets server.js stop ambilight.c, which switches the LEDs off
+    - name: Stop the Node server service
+      systemd:
+        name: "{{ smart_home_service }}"
         state: stopped
-      ignore_errors: yes
+      when: (smart_home_service + '.service') in ansible_facts.services
 
-    - name: Remove old container if exists
-      docker_container:
-        name: "{{ container_name }}"
-        state: absent
-      ignore_errors: yes
+    # [n]ode: the pattern must not match the command line of this shell itself
+    - name: Stop Node servers that were started by hand
+      shell: pkill -TERM -f "[n]ode .*Node/server\.js" && sleep 2 || true
+      changed_when: false
 
-    - name: Pull latest Docker image
-      docker_image:
-        name: "{{ docker_image }}"
-        source: pull
-        force_source: yes
+    ################ Copy the Smart Home folder ################
+    # settings.json is not in the local folder (.gitignore), so the saved settings on the Pi stay
+    - name: Copy the Smart Home folder to the Raspberry Pi
+      copy:
+        src: "{{ playbook_dir }}/../Luca_Smart_Home/"
+        dest: "{{ smart_home_dir }}/"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: u=rwX,g=rX,o=rX
 
-    - name: Run Docker container
-      docker_container:
-        name: "{{ container_name }}"
-        image: "{{ docker_image }}"
+    - name: Build Smart Home C component
+      command: make
+      args:
+        chdir: "{{ smart_home_dir }}/C"
+      become_user: "{{ ansible_user }}"
+      register: smart_home_make
+      changed_when: "'is up to date' not in smart_home_make.stdout"
+
+    ################ Start the Node server ################
+    - name: Install systemd service for the Node server
+      copy:
+        dest: "/etc/systemd/system/{{ smart_home_service }}.service"
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Smart Home Webserver
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          WorkingDirectory={{ smart_home_dir }}/Node
+          ExecStart=/usr/bin/env node {{ smart_home_dir }}/Node/server.js
+          Environment=PORT={{ smart_home_port }}
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Start and enable the Node server
+      systemd:
+        name: "{{ smart_home_service }}"
         state: started
-        privileged: yes
-        ports:
-          - "{{ container_port }}:5000"
-        restart_policy: always
-        volumes:
-          - /opt/ambilight:/app/logs
-        env:
-          FLASK_ENV: production
+        enabled: yes
+        daemon_reload: yes
 
-    - name: Clean up old unused images
-      shell: docker image prune -f
-      ignore_errors: yes
-      
+    - name: Check that the Node server answers
+      uri:
+        url: "http://127.0.0.1:{{ smart_home_port }}/api/ambilight"
+      register: ambilight_api
+      retries: 10
+      delay: 2
+      until: ambilight_api.status == 200

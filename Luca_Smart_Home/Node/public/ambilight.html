@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ambilight</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <span class="brand">Raspberry Pi</span>
+        <a href="/ambilight" class="active">Ambilight</a>
+    </nav>
+
+    <main>
+        <section class="card power">
+            <div>
+                <h1>Ambilight</h1>
+                <p id="status" class="status">Lade …</p>
+            </div>
+            <label class="switch" title="Ambilight ein/aus">
+                <input type="checkbox" id="power" role="switch" aria-label="Ambilight ein/aus" disabled>
+                <span class="track"><span class="thumb"></span></span>
+            </label>
+        </section>
+
+        <section class="card">
+            <h2>Farbe</h2>
+            <div class="range">
+                <label for="brightness">Helligkeit</label>
+                <input type="range" id="brightness" data-setting="brightness" data-type="percent" min="0" max="100" step="1">
+                <output for="brightness"></output>
+            </div>
+            <div class="range">
+                <label for="smooth_ratio">Glättung</label>
+                <input type="range" id="smooth_ratio" data-setting="smooth_ratio" data-type="percent" min="0" max="100" step="1">
+                <output for="smooth_ratio"></output>
+            </div>
+            <div class="range">
+                <label for="dark_gamma">Dark Gamma</label>
+                <input type="range" id="dark_gamma" data-setting="dark_gamma" data-type="percent" min="0" max="100" step="1">
+                <output for="dark_gamma"></output>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Abtastung</h2>
+            <div class="field">
+                <label for="resize_size">Resize Size</label>
+                <input type="number" id="resize_size" data-setting="resize_size" data-type="integer" min="1" max="100" step="1">
+            </div>
+
+            <h3>Abstand zum Bildrand</h3>
+            <div class="screen-layout">
+                <div class="field distance top">
+                    <label for="distance_top">Oben</label>
+                    <input type="number" id="distance_top" data-setting="distance_top" data-type="integer" min="0" max="100" step="1">
+                </div>
+                <div class="field distance left">
+                    <label for="distance_left">Links</label>
+                    <input type="number" id="distance_left" data-setting="distance_left" data-type="integer" min="0" max="100" step="1">
+                </div>
+                <div class="screen" aria-hidden="true">Bild</div>
+                <div class="field distance right">
+                    <label for="distance_right">Rechts</label>
+                    <input type="number" id="distance_right" data-setting="distance_right" data-type="integer" min="0" max="100" step="1">
+                </div>
+                <div class="field distance bottom">
+                    <label for="distance_bottom">Unten</label>
+                    <input type="number" id="distance_bottom" data-setting="distance_bottom" data-type="integer" min="0" max="100" step="1">
+                </div>
+            </div>
+        </section>
+
+        <p id="error" class="error" role="alert" hidden></p>
+    </main>
+
+    <script src="/ambilight.js"></script>
+</body>
+</html>
