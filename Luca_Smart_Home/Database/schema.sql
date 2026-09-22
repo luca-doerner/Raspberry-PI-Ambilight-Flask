@@ -79,8 +79,9 @@ ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
 --             as --name=value on the command line
 -- udp_port:   service only: the settings without restart_required are sent there as "name: value"
 --             whenever they change and after the program printed a line starting with "Started"
--- exclusive:  service only: of the exclusive features of a device only one can run at the same time,
---             e.g. the LEDs show either "ambilight" or "static_color"
+-- exclusive:  of the exclusive services of a device only one can run at the same time, e.g. the LEDs
+--             show either "ambilight" or "static_color"; an exclusive oneshot stops the exclusive
+--             services of its device before it runs
 -- active:     service only: the feature is started (the server starts it again after a restart)
 CREATE TABLE IF NOT EXISTS features (
     id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

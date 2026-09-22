@@ -294,7 +294,16 @@ async function renderDevicePage(device) {
     const panel = el("div", { class: "feature-panel" });
     const errors = errorBox();
 
+    // which features stop each other
     const exclusive = device.features.filter((f) => f.kind === "service" && f.exclusive);
+    const exclusiveOneshots = device.features.filter((f) => f.kind === "oneshot" && f.exclusive);
+    const names = (list) => list.map((f) => f.name).join(", ");
+    const exclusiveHints = [
+        exclusive.length > 1 ? `Von ${names(exclusive)} kann immer nur einer laufen.` : null,
+        exclusiveOneshots.length > 0 && exclusive.length > 0
+            ? `${names(exclusiveOneshots)} ${exclusiveOneshots.length === 1 ? "stoppt" : "stoppen"} beim Ausführen ${names(exclusive)}.`
+            : null,
+    ].filter(Boolean);
     showPage(
         breadcrumb([{ label: "Zimmer", href: "/rooms" }, ...device.path.slice(0, -1).map(pathLink), { label: device.name }]),
         el("div", { class: "page-header" },
@@ -305,10 +314,7 @@ async function renderDevicePage(device) {
         errors.node,
         el("h2", {}, "Features"),
         tabsSlot,
-        exclusive.length > 1
-            ? el("p", { class: "muted hint" },
-                `Von ${exclusive.map((f) => f.name).join(", ")} kann immer nur einer laufen.`)
-            : null,
+        exclusiveHints.length > 0 ? el("p", { class: "muted hint" }, exclusiveHints.join(" ")) : null,
         panel,
         el("h2", {}, "Untergeräte"),
         cardGrid(device.children.map(deviceCard), "An diesem Gerät hängen keine weiteren Geräte."));

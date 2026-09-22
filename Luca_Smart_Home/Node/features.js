@@ -4,7 +4,8 @@
 //            gets all settings as --name=value when it starts; settings without restart_required
 //            go to it via UDP ("name: value") when they change and after it printed "Started ...";
 //            saving a changed setting with restart_required restarts it
-//   oneshot  runs once every time settings are saved, with all settings as --name=value
+//   oneshot  runs once every time settings are saved, with all settings as --name=value;
+//            an exclusive oneshot stops the exclusive services of its device before it runs
 //
 // A new kind needs a row in feature_kinds and a branch in applySettings (and maybe start / stop).
 const path = require("path");
@@ -200,14 +201,32 @@ async function runOnce(id) {
 }
 
 /*************** Settings *********************************************************************/
+// an exclusive oneshot takes over the device: stops its exclusive services (for good, they do not
+// start again with the server); returns the names of the services that were started before
+async function stopExclusiveServices(feature) {
+    const stopped = [];
+    for (const service of await smarthome.stopExclusiveServices(feature.device_id, feature.id)) {
+        if (!service.active && runtime(service.id).proc === null)
+            continue;
+        await stopProgram(service.id);
+        log(`${service.name} gestoppt, weil ${feature.name} ausgeführt wird`, "server", service);
+        stopped.push(service.name);
+    }
+    return stopped;
+}
+
 // saves settings from the web page and applies them depending on the kind of the feature;
-// a oneshot can also be run again without changes (empty values); returns { values, restarted, run }
+// a oneshot can also be run again without changes (empty values);
+// returns { values, restarted, run, stopped }
 async function applySettings(id, values) {
     if (values === null || typeof values !== "object" || Array.isArray(values))
         throw new HttpError(400, "values muss ein Objekt sein");
     const feature = await smarthome.getFeature(id);
     if (Object.keys(values).length === 0 && feature.kind !== "oneshot")
         throw new HttpError(400, "Keine Einstellungen angegeben");
+    // checked before anything is saved or stopped
+    if (feature.kind === "oneshot" && runtime(id).proc !== null)
+        throw new HttpError(409, "Das Programm läuft noch, bitte kurz warten");
     const definitions = new Map(feature.settings.map((setting) => [setting.name, setting]));
 
     const normalized = {};
@@ -219,7 +238,7 @@ async function applySettings(id, values) {
     }
     if (Object.keys(normalized).length > 0)
         await smarthome.saveSettingValues(id, normalized);
-    const result = { values: normalized, restarted: false, run: null };
+    const result = { values: normalized, restarted: false, run: null, stopped: [] };
 
     if (feature.kind === "service") {
         const running = runtime(id).proc !== null;
@@ -235,6 +254,8 @@ async function applySettings(id, values) {
                     await sendUdp(feature, name, value);
         }
     } else if (feature.kind === "oneshot") {
+        if (feature.exclusive)
+            result.stopped = await stopExclusiveServices(feature);
         result.run = await runOnce(id);
     }
     return result;

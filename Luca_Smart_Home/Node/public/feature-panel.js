@@ -363,7 +363,7 @@ function runResult(run) {
     ];
 }
 
-function renderOneshot(container, feature) {
+function renderOneshot(container, feature, { onFeaturesChanged }) {
     const errors = errorBox();
     const result = el("section", { class: "card" }, el("h3", {}, "Letzte Ausführung"), runResult(feature.state.lastRun));
 
@@ -375,15 +375,19 @@ function renderOneshot(container, feature) {
         alwaysSubmit: true,
         errors,
         onSaved(saved, formStatus) {
-            formStatus.textContent = saved.run?.exitCode === 0 ? "Gespeichert und ausgeführt" : "Gespeichert, Ausführung fehlgeschlagen";
+            const stopped = saved.stopped.length > 0 ? ` (gestoppt: ${saved.stopped.join(", ")})` : "";
+            formStatus.textContent = (saved.run?.exitCode === 0 ? "Gespeichert und ausgeführt" : "Gespeichert, Ausführung fehlgeschlagen") + stopped;
             result.replaceChildren(el("h3", {}, "Letzte Ausführung"), ...[runResult(saved.run)].flat());
+            if (saved.stopped.length > 0)
+                onFeaturesChanged();   // the dots of the stopped services
         },
     });
 
     appendAll(container,
         el("section", { class: "card" },
             el("h2", {}, feature.name, " ", el("span", { class: "badge" }, KIND_LABELS.oneshot)),
-            el("p", { class: "muted" }, "Läuft einmal, wenn die Einstellungen gespeichert werden."),
+            el("p", { class: "muted" }, "Läuft einmal, wenn die Einstellungen gespeichert werden."
+                + (feature.exclusive ? " Stoppt vorher die exklusiven Dienste dieses Geräts." : "")),
             feature.hasProgram ? null : el("p", { class: "muted" }, "Für dieses Feature ist kein Programm eingetragen.")),
         form,
         result,
@@ -412,7 +416,7 @@ export function renderFeature(container, feature, { onFeaturesChanged }) {
     if (feature.kind === "service")
         cleanup = renderService(container, feature, { onFeaturesChanged });
     else if (feature.kind === "oneshot")
-        cleanup = renderOneshot(container, feature);
+        cleanup = renderOneshot(container, feature, { onFeaturesChanged });
     else {
         container.append(el("section", { class: "card" },
             el("h2", {}, feature.name),

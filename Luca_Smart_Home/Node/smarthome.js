@@ -259,7 +259,22 @@ async function setFeatureActive(id, active, onChange) {
     return changes;
 }
 
+// marks the exclusive services of the device except one feature as stopped, so they do not start
+// again with the server; returns them as [{ id, name, active }] (active: before the change)
+async function stopExclusiveServices(deviceId, exceptId) {
+    const { rows } = await db.query(`
+        WITH before AS (
+            SELECT id, name, active FROM features
+            WHERE device_id = $1 AND kind = 'service' AND exclusive AND id <> $2
+            FOR UPDATE
+        )
+        UPDATE features f SET active = false
+        FROM before b WHERE f.id = b.id
+        RETURNING b.id, b.name, b.active`, [deviceId, exceptId]);
+    return rows;
+}
+
 module.exports = {
     getTree, getPinned, setDevicePinned, getRoom, getDevice,
-    getFeature, validateValue, saveSettingValues, activeServices, setFeatureActive,
+    getFeature, validateValue, saveSettingValues, activeServices, setFeatureActive, stopExclusiveServices,
 };
