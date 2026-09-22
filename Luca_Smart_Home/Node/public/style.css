@@ -9,8 +9,6 @@
     --on: #1f9d55;
     --error-bg: #fdecec;
     --error-text: #b42318;
-    --screen: #1d1f23;
-    --screen-text: #c9ccd2;
     --sidebar-width: 272px;
     --topbar-height: 56px;
 }
@@ -27,8 +25,6 @@
         --on: #3ccf7c;
         --error-bg: #3a1d1d;
         --error-text: #ff9b91;
-        --screen: #0b0c0e;
-        --screen-text: #7d828b;
     }
 }
 
@@ -135,6 +131,54 @@ main {
     padding: 12px 8px;
     background: var(--surface);
     border-right: 1px solid var(--border);
+}
+
+/* pinned devices above the tree */
+.nav-section {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.nav-heading {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 4px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.nav-heading .icon {
+    width: 14px;
+    height: 14px;
+}
+
+.pinned-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.pinned-list .tree-link {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+}
+
+.tree-location {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.tree-link[aria-current="page"] .tree-location {
+    color: inherit;
+    font-weight: 400;
+    opacity: 0.8;
 }
 
 .tree,
@@ -276,6 +320,32 @@ main {
     border-color: var(--accent);
 }
 
+button.button {
+    font: inherit;
+    cursor: pointer;
+}
+
+button.button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pin-button[aria-pressed="true"] {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+}
+
+.pin-button[aria-pressed="true"] .icon path {
+    fill: currentColor;
+}
+
 .badge {
     display: inline-block;
     padding: 2px 8px;
@@ -293,6 +363,16 @@ main {
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 16px;
+}
+
+.card > h2:first-child {
+    margin-top: 0;
+}
+
+code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.9em;
+    white-space: nowrap;
 }
 
 .card-grid {
@@ -377,22 +457,6 @@ main {
     border-color: var(--on);
 }
 
-.settings-list {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 6px 16px;
-    margin: 0 0 12px;
-}
-
-.settings-list dt {
-    color: var(--muted);
-}
-
-.settings-list dd {
-    margin: 0;
-    font-family: ui-monospace, monospace;
-}
-
 /*************** Power Switch *****************************************************************/
 .power {
     display: flex;
@@ -412,6 +476,10 @@ main {
 
 .status.on {
     color: var(--on);
+}
+
+.status.failed {
+    color: var(--error-text);
 }
 
 .switch {
@@ -467,40 +535,53 @@ main {
     opacity: 0.5;
 }
 
-/*************** Sliders **********************************************************************/
-.range {
+/*************** Settings *******************************************************************/
+/* one setting: label on the left, input on the right */
+.setting-row {
     display: grid;
-    grid-template-columns: 120px 1fr 56px;
+    grid-template-columns: 160px minmax(0, 1fr);
     align-items: center;
     gap: 12px;
-    margin-bottom: 12px;
+    min-height: 40px;
+    margin-bottom: 8px;
 }
 
-.range input {
+.setting-row > label {
+    color: var(--text);
+}
+
+.range-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px;
+    align-items: center;
+    gap: 12px;
+}
+
+.range-control input {
     width: 100%;
     accent-color: var(--accent);
 }
 
-.range output {
+.range-control output {
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
 
-/*************** Number Fields ****************************************************************/
-.field {
+.number-control {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    gap: 8px;
 }
 
-.field label {
-    font-size: 0.9rem;
+.unit {
     color: var(--muted);
 }
 
-.field input {
+.setting-row input[type="number"],
+.setting-row input[type="text"],
+.setting-row select {
     width: 100%;
-    max-width: 120px;
+    max-width: 240px;
     padding: 8px 10px;
     font: inherit;
     color: var(--text);
@@ -509,55 +590,74 @@ main {
     border-radius: 8px;
 }
 
-.field input:focus {
+.setting-row input[type="number"] {
+    max-width: 120px;
+}
+
+.setting-row input[type="color"] {
+    width: 56px;
+    height: 36px;
+    padding: 2px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.setting-row input:focus,
+.setting-row select:focus {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
 
-.field input:invalid {
+.setting-row input:invalid {
     border-color: var(--error-text);
 }
 
-/* distance fields arranged around a screen */
-.screen-layout {
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
-    grid-template-areas:
-        ".    top    ."
-        "left screen right"
-        ".    bottom .";
-    gap: 12px;
-    align-items: center;
-    justify-items: center;
+.setting-row .switch {
+    justify-self: start;
 }
 
-.distance {
-    align-items: center;
-    text-align: center;
-}
-
-.distance input {
-    max-width: 80px;
-    text-align: center;
-}
-
-.distance.top { grid-area: top; }
-.distance.left { grid-area: left; }
-.distance.right { grid-area: right; }
-.distance.bottom { grid-area: bottom; }
-
-.screen {
-    grid-area: screen;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--screen);
-    color: var(--screen-text);
-    border-radius: 6px;
-    box-shadow: 0 0 0 4px var(--border), 0 0 24px 4px color-mix(in srgb, var(--accent) 45%, transparent);
+/* settings that are saved with a button */
+.form-description {
+    margin: -4px 0 12px;
     font-size: 0.9rem;
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.form-status {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.button.primary {
+    color: #ffffff;
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.button.primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+/* output of the last run of a oneshot program */
+.output {
+    max-height: 320px;
+    margin: 12px 0 0;
+    padding: 12px;
+    overflow: auto;
+    font: 0.85rem/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+    white-space: pre-wrap;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
 }
 
 /*************** Error ************************************************************************/
@@ -607,16 +707,10 @@ main {
 }
 
 @media (max-width: 480px) {
-    .range {
-        grid-template-columns: 1fr 56px;
-    }
-
-    .range label {
-        grid-column: 1 / -1;
-        margin-bottom: -8px;
-    }
-
-    .range input {
-        grid-column: 1;
+    /* label above the input */
+    .setting-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
+        margin-bottom: 12px;
     }
 }

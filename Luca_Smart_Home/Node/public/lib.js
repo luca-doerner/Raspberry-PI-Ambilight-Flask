@@ -37,6 +37,8 @@ export function icon(name) {
         chevron: "M9 6l6 6-6 6",
         home: "M3 11l9-7 9 7M5 10v10h14V10",
         up: "M12 19V5M5 12l7-7 7 7",
+        pin: "M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76"
+            + "a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z",
     };
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
@@ -78,23 +80,4 @@ export function errorBox() {
             node.hidden = errors.size === 0;
         },
     };
-}
-
-// on/off switch; onToggle(checked) returns a promise, the switch is locked while it runs
-// and jumps back if it fails
-export function toggleSwitch({ label, checked, onToggle }) {
-    const input = el("input", { type: "checkbox", role: "switch", "aria-label": label, checked });
-    input.addEventListener("change", async () => {
-        input.disabled = true;
-        try {
-            await onToggle(input.checked);
-        } catch {
-            input.checked = !input.checked;
-        } finally {
-            input.disabled = false;
-        }
-    });
-    const node = el("label", { class: "switch", title: label },
-        input, el("span", { class: "track" }, el("span", { class: "thumb" })));
-    return { node, input };
 }

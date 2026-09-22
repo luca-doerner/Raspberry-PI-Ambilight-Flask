@@ -21,11 +21,15 @@ CREATE TABLE IF NOT EXISTS devices (
     parent_device_id BIGINT REFERENCES devices (id) ON DELETE CASCADE,
     name             TEXT NOT NULL,
     type             TEXT,              -- free text, e.g. "tv", "light", "led_strip"
+    pinned_at        TIMESTAMPTZ,       -- pinned in the navigation since then, NULL = not pinned
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT devices_one_location CHECK (num_nonnulls(room_id, parent_device_id) = 1),
     -- names are unique per room or per parent device
     CONSTRAINT devices_unique_name UNIQUE NULLS NOT DISTINCT (room_id, parent_device_id, name)
 );
+
+-- databases created before pinning existed
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS devices_room_id_idx ON devices (room_id);
 CREATE INDEX IF NOT EXISTS devices_parent_device_id_idx ON devices (parent_device_id);
@@ -54,23 +58,59 @@ CREATE OR REPLACE TRIGGER devices_no_cycle
     BEFORE INSERT OR UPDATE OF parent_device_id ON devices
     FOR EACH ROW EXECUTE FUNCTION devices_check_cycle();
 
+-- how the server runs the program of a feature; a new kind needs a row here and its code in
+-- Node/features.js
+CREATE TABLE IF NOT EXISTS feature_kinds (
+    name        TEXT PRIMARY KEY,
+    description TEXT NOT NULL
+);
+
+INSERT INTO feature_kinds (name, description) VALUES
+    ('service', 'Läuft dauerhaft mit Start und Stopp; Einstellungen gehen sofort per UDP an das Programm, '
+                || 'Einstellungen mit restart_required erst nach Speichern und Neustart'),
+    ('oneshot', 'Läuft einmal, wenn Einstellungen gespeichert werden; die Einstellungen kommen als '
+                || '--name=wert auf der Kommandozeile')
+ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
+
 -- a function of a device, e.g. "ambilight" on the LEDs or later "hdmi_switch" on the TV
 --
--- exclusive: of the exclusive features of a device only one can be active at the same time,
---            e.g. the LEDs show either "ambilight" or "static_color";
---            other features (e.g. "hdmi_switch") can always be used
--- active:    the feature is switched on (the web page and the server remember it across restarts)
+-- kind:       how the program runs, see feature_kinds
+-- executable: program of the feature, relative to Luca_Smart_Home/ or absolute; it gets all settings
+--             as --name=value on the command line
+-- udp_port:   service only: the settings without restart_required are sent there as "name: value"
+--             whenever they change and after the program printed a line starting with "Started"
+-- exclusive:  service only: of the exclusive features of a device only one can run at the same time,
+--             e.g. the LEDs show either "ambilight" or "static_color"
+-- active:     service only: the feature is started (the server starts it again after a restart)
 CREATE TABLE IF NOT EXISTS features (
     id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     device_id  BIGINT NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
-    type       TEXT NOT NULL,           -- what the software does with it, e.g. "ambilight"
+    type       TEXT NOT NULL,           -- free text, e.g. "ambilight"
     name       TEXT NOT NULL,           -- display name
-    executable TEXT,                    -- program of the feature, relative to Luca_Smart_Home/ or absolute
+    kind       TEXT NOT NULL DEFAULT 'service' REFERENCES feature_kinds (name),
+    executable TEXT,
+    udp_port   INTEGER CHECK (udp_port BETWEEN 1 AND 65535),
     exclusive  BOOLEAN NOT NULL DEFAULT false,
     active     BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT features_unique_name UNIQUE (device_id, name)
 );
+
+-- databases created before kind existed: all features were services
+ALTER TABLE features ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'service' REFERENCES feature_kinds (name);
+
+-- databases created before udp_port existed: ambilight listened on port 9000
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = 'features' AND column_name = 'udp_port'
+    ) THEN
+        ALTER TABLE features ADD COLUMN udp_port INTEGER CHECK (udp_port BETWEEN 1 AND 65535);
+        UPDATE features SET udp_port = 9000 WHERE type = 'ambilight';
+    END IF;
+END
+$$;
 
 -- databases created before exclusive/active existed: add the columns once,
 -- ambilight features become exclusive (later changes to exclusive are kept)
@@ -92,7 +132,30 @@ CREATE INDEX IF NOT EXISTS features_type_idx ON features (type);
 -- at most one active exclusive feature per device
 CREATE UNIQUE INDEX IF NOT EXISTS features_one_active_exclusive ON features (device_id) WHERE exclusive AND active;
 
--- one setting of a feature, e.g. brightness = 70; JSONB so later features can also store text or booleans
+-- the settings a feature has, the web page shows them from this table
+CREATE TABLE IF NOT EXISTS setting_definitions (
+    feature_id       BIGINT NOT NULL REFERENCES features (id) ON DELETE CASCADE,
+    -- key for the database, UDP and the command line, e.g. "brightness"
+    name             TEXT NOT NULL CHECK (name ~ '^[a-z][a-z0-9_]*$'),
+    label            TEXT NOT NULL,     -- shown on the page, e.g. "Helligkeit"
+    -- range: slider, number: number field, boolean: switch, text, select: list of options, color: #rrggbb
+    type             TEXT NOT NULL CHECK (type IN ('range', 'number', 'boolean', 'text', 'select', 'color')),
+    default_value    JSONB NOT NULL,    -- used until the setting is changed, e.g. 70, true, "HDMI 1"
+    min              DOUBLE PRECISION,  -- range / number
+    max              DOUBLE PRECISION,  -- range / number
+    step             DOUBLE PRECISION,  -- range / number, 1 = whole numbers only (default)
+    unit             TEXT,              -- shown after the value, e.g. "%"
+    options          JSONB,             -- select: ["HDMI 1", "HDMI 2"] or [{"value": 1, "label": "HDMI 1"}]
+    section          TEXT,              -- heading on the page, settings with the same section are shown together
+    -- service only: the program has to be restarted to use a new value (saved with a button)
+    restart_required BOOLEAN NOT NULL DEFAULT false,
+    sort_order       INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (feature_id, name),
+    -- COALESCE: without options jsonb_typeof is NULL and a CHECK lets NULL pass
+    CHECK (type <> 'select' OR COALESCE(jsonb_typeof(options) = 'array', false))
+);
+
+-- the current value of a setting, e.g. brightness = 70; settings without a row use their default_value
 CREATE TABLE IF NOT EXISTS settings (
     feature_id BIGINT NOT NULL REFERENCES features (id) ON DELETE CASCADE,
     name       TEXT NOT NULL,

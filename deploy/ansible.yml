@@ -126,8 +126,8 @@
 
     - name: Check that the Node server answers
       uri:
-        url: "http://127.0.0.1:{{ smart_home_port }}/api/ambilight"
-      register: ambilight_api
+        url: "http://127.0.0.1:{{ smart_home_port }}/api/navigation"
+      register: smart_home_api
       retries: 10
       delay: 2
-      until: ambilight_api.status == 200
+      until: smart_home_api.status == 200

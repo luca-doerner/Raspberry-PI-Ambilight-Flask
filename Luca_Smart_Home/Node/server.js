@@ -2,7 +2,7 @@
  * Web server of the smart home: rooms, nested devices and their features.
  *
  * - pages: /rooms, /rooms/:id, /devices/:id (one page, public/index.html + public/app.js)
- * - feature "ambilight" starts / stops the C program and forwards its settings via UDP (ambilight.js)
+ * - features and their settings come from the database, their programs run in features.js
  *
  * Run (needs root, because the ambilight program needs root for the LEDs):
  *   sudo node server.js
@@ -11,11 +11,7 @@
  *   PORT           web server port (default 5000)
  *   PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
  *                  PostgreSQL database (Database/schema.sql)
- *   AMBILIGHT_BIN  path to the compiled ambilight program
- *                  (default: executable of the feature in the database, otherwise ../C/ambilight)
- *   AMBILIGHT_FEATURE_ID
- *                  id of the feature to use if there is more than one of type "ambilight"
- *   UDP_HOST       receiver of the UDP messages (default 127.0.0.1)
+ *   UDP_HOST       receiver of the UDP messages of the services (default 127.0.0.1)
  */
 const http = require("http");
 const fs = require("fs");
@@ -24,7 +20,7 @@ const db = require("./db");
 const HttpError = require("./http-error");
 const { log, streamLog } = require("./log");
 const smarthome = require("./smarthome");
-const ambilight = require("./ambilight");
+const features = require("./features");
 
 /*************** Configuration ****************************************************************/
 const PORT = Number(process.env.PORT) || 5000;
@@ -36,16 +32,12 @@ const MIME_TYPES = {
     ".js": "text/javascript; charset=utf-8",
 };
 
-// feature types the server can switch on and off
-const FEATURE_HANDLERS = {
-    [ambilight.FEATURE_TYPE]: { setActive: ambilight.setActive },
-};
-
 db.on("error", (err) => log(`Datenbankfehler: ${err.message}`));
 
 /*************** HTTP Helpers *****************************************************************/
+// API answers are never cached, they always show the current state
 function sendJson(res, status, data) {
-    res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+    res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
     res.end(JSON.stringify(data));
 }
 
@@ -68,16 +60,28 @@ function readJson(req) {
     });
 }
 
-// files from public/, only plain names like "app.js" or "features/ambilight.js"
-function serveFile(res, file) {
+// files from public/, only plain names like "app.js" or "feature-panel.js";
+// no-cache: browsers and Cloudflare have to ask on every use whether the file changed (ETag),
+// otherwise they keep showing old files after a deploy; unchanged files are answered with 304
+async function serveFile(req, res, file) {
     if (!/^[\w-]+(\/[\w-]+)*\.(html|css|js)$/.test(file))
         return sendJson(res, 404, { error: "Nicht gefunden" });
-    fs.readFile(path.join(PUBLIC_DIR, file), (err, data) => {
-        if (err)
-            return sendJson(res, 404, { error: "Nicht gefunden" });
-        res.writeHead(200, { "Content-Type": MIME_TYPES[path.extname(file)] });
-        res.end(data);
-    });
+    const fullPath = path.join(PUBLIC_DIR, file);
+    let stat;
+    try {
+        stat = await fs.promises.stat(fullPath);
+    } catch {
+        return sendJson(res, 404, { error: "Nicht gefunden" });
+    }
+
+    const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+    const headers = { "Content-Type": MIME_TYPES[path.extname(file)], "Cache-Control": "no-cache", ETag: etag };
+    if (req.headers["if-none-match"] === etag) {
+        res.writeHead(304, headers);
+        return res.end();
+    }
+    res.writeHead(200, headers);
+    res.end(await fs.promises.readFile(fullPath));
 }
 
 function redirect(res, location) {
@@ -85,11 +89,16 @@ function redirect(res, location) {
     res.end();
 }
 
-// the feature the server can switch, with its state and the switch information for the page
+// feature with its settings and the state of its program; the executable is not sent to the page
+async function featureWithState(id) {
+    const { executable, ...feature } = await smarthome.getFeature(id);
+    return { ...feature, hasProgram: Boolean(executable), state: features.state(id) };
+}
+
+// the state that changes while the page is open: started or not and the program
 async function featureState(id) {
-    const feature = await smarthome.getFeature(id);
-    feature.switchable = feature.exclusive || Object.hasOwn(FEATURE_HANDLERS, feature.type);
-    return feature;
+    const { active } = await smarthome.getFeature(id);
+    return { active, ...features.state(id) };
 }
 
 /*************** Routes ***********************************************************************/
@@ -97,38 +106,47 @@ async function featureState(id) {
 const ROUTES = [
     // pages (the page itself loads its data from the API)
     ["GET", /^\/$/, (req, res) => redirect(res, "/rooms")],
-    ["GET", /^\/(rooms|rooms\/\d+|devices\/\d+)$/, (req, res) => serveFile(res, "index.html")],
+    ["GET", /^\/(rooms|rooms\/\d+|devices\/\d+)$/, (req, res) => serveFile(req, res, "index.html")],
     // old address of the ambilight page
     ["GET", /^\/ambilight$/, async (req, res) => {
-        const id = ambilight.featureId();
-        if (id === null)
-            return redirect(res, "/rooms");
-        const { device_id: deviceId } = await smarthome.getFeature(id);
-        redirect(res, `/devices/${deviceId}?feature=${id}`);
+        const { rows: [feature] } = await db.query("SELECT id, device_id FROM features WHERE type = 'ambilight' ORDER BY id LIMIT 1");
+        redirect(res, feature ? `/devices/${feature.device_id}?feature=${feature.id}` : "/rooms");
     }],
 
     // navigation, rooms and devices
-    ["GET", /^\/api\/tree$/, async (req, res) => sendJson(res, 200, await smarthome.getTree())],
+    ["GET", /^\/api\/navigation$/, async (req, res) => sendJson(res, 200, {
+        rooms: await smarthome.getTree(),
+        pinned: await smarthome.getPinned(),
+    })],
     ["GET", /^\/api\/rooms\/(\d+)$/, async (req, res, id) => sendJson(res, 200, await smarthome.getRoom(Number(id)))],
     ["GET", /^\/api\/devices\/(\d+)$/, async (req, res, id) => sendJson(res, 200, await smarthome.getDevice(Number(id)))],
+    ["POST", /^\/api\/devices\/(\d+)\/pinned$/, async (req, res, id) => {
+        const { pinned } = await readJson(req);
+        if (typeof pinned !== "boolean")
+            throw new HttpError(400, "pinned muss true oder false sein");
+        sendJson(res, 200, { pinned: await smarthome.setDevicePinned(Number(id), pinned) });
+    }],
 
     // features
-    ["GET", /^\/api\/features\/(\d+)$/, async (req, res, id) => sendJson(res, 200, await featureState(Number(id)))],
+    ["GET", /^\/api\/features\/(\d+)$/, async (req, res, id) => sendJson(res, 200, await featureWithState(Number(id)))],
+    ["GET", /^\/api\/features\/(\d+)\/state$/, async (req, res, id) => sendJson(res, 200, await featureState(Number(id)))],
+    // start (true) or stop (false) a service
     ["POST", /^\/api\/features\/(\d+)\/active$/, async (req, res, id) => {
         const { active } = await readJson(req);
         if (typeof active !== "boolean")
             throw new HttpError(400, "active muss true oder false sein");
-        const changes = await smarthome.setFeatureActive(Number(id), active, FEATURE_HANDLERS);
-        sendJson(res, 200, { changes, feature: await featureState(Number(id)) });
+        const changes = await smarthome.setFeatureActive(Number(id), active, features.setActive);
+        sendJson(res, 200, { changes, state: await featureState(Number(id)) });
+    }],
+    // { values: { name: value, ... } }, applied depending on the kind of the feature
+    ["POST", /^\/api\/features\/(\d+)\/settings$/, async (req, res, id) => {
+        const { values } = await readJson(req);
+        const result = await features.applySettings(Number(id), values);
+        sendJson(res, 200, { ...result, state: await featureState(Number(id)) });
     }],
 
-    // feature "ambilight"
-    ["GET", /^\/api\/ambilight$/, (req, res) => sendJson(res, 200, ambilight.state())],
-    ["GET", /^\/api\/ambilight\/log$/, (req, res) => streamLog(req, res)],
-    ["POST", /^\/api\/ambilight\/setting$/, async (req, res) => {
-        const { name, value } = await readJson(req);
-        sendJson(res, 200, { name, value: await ambilight.setSetting(name, value) });
-    }],
+    // output of the feature programs and server messages as Server-Sent Events
+    ["GET", /^\/api\/log$/, (req, res) => streamLog(req, res)],
 ];
 
 async function handle(req, res) {
@@ -140,7 +158,7 @@ async function handle(req, res) {
                 return await handler(req, res, ...match.slice(1));
         }
         if (req.method === "GET" && !url.pathname.startsWith("/api/"))
-            return serveFile(res, url.pathname.slice(1));
+            return await serveFile(req, res, url.pathname.slice(1));
         sendJson(res, 404, { error: "Nicht gefunden" });
     } catch (err) {
         if (!(err instanceof HttpError))
@@ -151,16 +169,16 @@ async function handle(req, res) {
 }
 
 /*************** Main *************************************************************************/
-ambilight.init();
+features.init();
 
 const server = http.createServer(handle);
 server.listen(PORT, () => {
     log(`Webserver läuft auf http://localhost:${PORT}`);
 });
 
-// switch the LEDs off when the web server is stopped
+// stop the programs (ambilight switches the LEDs off) when the web server is stopped
 async function shutdown() {
-    await ambilight.shutdown();
+    await features.shutdown();
     await db.end().catch(() => {});
     server.close();
     process.exit(0);
