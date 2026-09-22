@@ -126,7 +126,7 @@
 
     - name: Check that the Node server answers
       uri:
-        url: "http://127.0.0.1:{{ smart_home_port }}/api/navigation"
+        url: "http://127.0.0.1:{{ smart_home_port }}/api/health"
       register: smart_home_api
       retries: 10
       delay: 2

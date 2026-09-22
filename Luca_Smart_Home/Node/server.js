@@ -130,6 +130,11 @@ const ROUTES = [
         sendJson(res, 200, {});
     }],
     ["GET", /^\/api\/me$/, (req, res) => sendJson(res, 200, { username: req.user.username })],
+    // for the deploy: server and database answer (no login needed, shows no data)
+    ["GET", /^\/api\/health$/, async (req, res) => {
+        await db.query("SELECT 1");
+        sendJson(res, 200, { ok: true });
+    }],
 
     // pages (the page itself loads its data from the API)
     ["GET", /^\/$/, (req, res) => redirect(res, "/rooms")],
@@ -189,6 +194,7 @@ const PUBLIC = [
     ["GET", /^\/login$/],
     ["POST", /^\/api\/login$/],
     ["POST", /^\/api\/logout$/],
+    ["GET", /^\/api\/health$/],
     ["GET", /^\/(login\.js|style\.css)$/],
 ];
 
