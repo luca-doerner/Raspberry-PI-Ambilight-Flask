@@ -127,6 +127,38 @@ function settingInput(setting, id, { onInput = () => {}, onChange = () => {} }) 
                 input: group,
             };
         }
+        case "screen": {
+            // four numbers around a screen, e.g. the distance of the ambilight LEDs to the edges
+            const sides = [["top", "Oben"], ["left", "Links"], ["right", "Rechts"], ["bottom", "Unten"]];
+            const inputs = {};
+            const fields = sides.map(([side, label]) => {
+                const sideId = `${id}-${side}`;
+                inputs[side] = el("input", { type: "number", id: sideId, ...numeric, value: setting.value[side] });
+                inputs[side].addEventListener("change", onChange);
+                return el("div", { class: `screen-field ${side}` },
+                    el("label", { for: sideId }, label), inputs[side]);
+            });
+            // the input events of the four fields bubble up to the group, that is how a form notices changes
+            const group = el("div", { class: "screen-layout", role: "group", id, "aria-labelledby": `${id}-label` },
+                fields, el("div", { class: "screen", "aria-hidden": "true" }, "Bild"));
+
+            const all = () => Object.values(inputs);
+            group.checkValidity = () => all().every((input) => input.checkValidity());
+            group.reportValidity = () => all().find((input) => !input.checkValidity())?.reportValidity() ?? true;
+            Object.defineProperty(group, "validationMessage", {
+                get: () => all().find((input) => !input.checkValidity())?.validationMessage ?? "",
+            });
+            return {
+                node: group,
+                read: () => Object.fromEntries(sides.map(([side]) =>
+                    [side, inputs[side].value === "" ? NaN : Number(inputs[side].value)])),
+                write: (value) => {
+                    for (const [side] of sides)
+                        inputs[side].value = value[side];
+                },
+                input: group,
+            };
+        }
         case "color": {
             const input = el("input", { type: "color", id, value: setting.value });
             input.addEventListener("input", onInput);

@@ -707,6 +707,80 @@ code {
     justify-self: start;
 }
 
+/* screen: four number fields around a screen */
+.screen-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-areas:
+        ".    top    ."
+        "left screen right"
+        ".    bottom .";
+    gap: 12px;
+    align-items: center;
+    justify-items: center;
+    max-width: 420px;
+    padding: 4px 0;
+}
+
+.screen-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+}
+
+.screen-field label {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.screen-field input {
+    width: 76px;
+    padding: 6px 8px;
+    font: inherit;
+    text-align: center;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.screen-field input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.screen-field input:invalid {
+    border-color: var(--error-text);
+}
+
+.screen-field.top { grid-area: top; }
+.screen-field.left { grid-area: left; }
+.screen-field.right { grid-area: right; }
+.screen-field.bottom { grid-area: bottom; }
+
+.screen {
+    grid-area: screen;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    font-size: 0.85rem;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 0 18px 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* the label of a screen setting belongs above the picture, not next to it */
+.setting-row:has(.screen-layout) {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+}
+
 /* button_select: one button per option, the selected one is filled */
 .button-select {
     display: flex;

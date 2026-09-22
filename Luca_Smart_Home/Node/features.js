@@ -25,6 +25,8 @@ const STOP_TIMEOUT_MS = 3000;
 const ONESHOT_TIMEOUT_MS = 60000;
 const OUTPUT_LIMIT = 20000;       // characters of the output of a oneshot run kept for the page
 const DB_RETRY_MS = 5000;
+// a setting with this name is switched off when an exclusive service of the device starts
+const POWER_SETTING = "power";
 
 // state of the programs that are not in the database, per feature id
 const runtimes = new Map();
@@ -47,12 +49,22 @@ function formatValue(value) {
     return typeof value === "string" ? value : JSON.stringify(value);
 }
 
+// the name / value pairs a setting stands for: normally one, a "screen" setting becomes four
+// (distance -> distance_top, distance_left, distance_right, distance_bottom)
+function settingPairs(definition, value) {
+    if (definition.type !== "screen")
+        return [[definition.name, value]];
+    return smarthome.SCREEN_SIDES.map((side) => [`${definition.name}_${side}`, value[side]]);
+}
+
 // every start (service and oneshot): all device settings, then all feature settings (also those
 // with restart_required); if both have the same name, both are passed and the feature value comes
 // last, so a program that takes the last one uses the feature value
 async function commandLine(feature) {
     const deviceSettings = await smarthome.loadSettings("device", feature.device_id);
-    return [...deviceSettings, ...feature.settings].map((setting) => `--${setting.name}=${formatValue(setting.value)}`);
+    return [...deviceSettings, ...feature.settings]
+        .flatMap((setting) => settingPairs(setting, setting.value))
+        .map(([name, value]) => `--${name}=${formatValue(value)}`);
 }
 
 // printf() only writes full buffers into a pipe, stdbuf -oL makes the program write every line at once
@@ -65,6 +77,12 @@ function spawnProgram(program, args) {
 
 /*************** UDP **************************************************************************/
 let udp = null;
+
+// one message per name / value pair, a "screen" setting therefore sends four
+async function sendUdpSetting(feature, definition, value) {
+    for (const [name, sideValue] of settingPairs(definition, value))
+        await sendUdp(feature, name, sideValue);
+}
 
 function sendUdp(feature, name, value) {
     if (!feature.udp_port)
@@ -85,7 +103,7 @@ function sendUdp(feature, name, value) {
 async function sendLiveSettings(feature) {
     for (const setting of feature.settings)
         if (!setting.restart_required)
-            await sendUdp(feature, setting.name, setting.value);
+            await sendUdpSetting(feature, setting, setting.value);
 }
 
 /*************** Service **********************************************************************/
@@ -165,9 +183,39 @@ function stopProgram(id) {
     });
 }
 
+// the value that means "off" for a setting: false, the option "off" or the text "off"
+function offValue(definition) {
+    if (definition.type === "boolean")
+        return false;
+    const option = (definition.options ?? []).find((o) => String(o.value).toLowerCase() === "off");
+    if (option)
+        return option.value;
+    return definition.type === "text" ? "off" : null;
+}
+
+// an exclusive service takes over the device: the exclusive oneshots of the device that have a
+// setting named "power" are switched off, so the page shows what really is on
+async function switchOffExclusiveOneshots(feature) {
+    for (const oneshot of await smarthome.exclusiveOneshots(feature.device_id, feature.id)) {
+        const settings = await smarthome.loadSettings("feature", oneshot.id);
+        const power = settings.find((setting) => setting.name === POWER_SETTING);
+        const off = power && offValue(power);
+        if (off === null || off === undefined || JSON.stringify(power.value) === JSON.stringify(off))
+            continue;
+        await smarthome.saveSettingValues("feature", oneshot.id, { [POWER_SETTING]: off });
+        log(`${oneshot.name}: ${POWER_SETTING} auf ${formatValue(off)} gesetzt, weil ${feature.name} gestartet wurde`,
+            "server", oneshot);
+    }
+}
+
 // called after features.active changed (smarthome.setFeatureActive)
 async function setActive(id, active) {
-    await (active ? startService(id) : stopProgram(id));
+    if (!active)
+        return stopProgram(id);
+    await startService(id);
+    const feature = await smarthome.getFeature(id);
+    if (feature.exclusive)
+        await switchOffExclusiveOneshots(feature);
 }
 
 /*************** Oneshot **********************************************************************/
@@ -261,7 +309,7 @@ async function applySettings(id, values) {
         } else if (running) {
             for (const [name, value] of Object.entries(normalized))
                 if (!definitions.get(name).restart_required)
-                    await sendUdp(feature, name, value);
+                    await sendUdpSetting(feature, definitions.get(name), value);
         }
     } else if (feature.kind === "oneshot") {
         if (feature.exclusive)

@@ -9,9 +9,7 @@
 
 int main(int argc, char *argv[]) {
     char* power = "off";
-    uint8_t red = 0;
-    uint8_t green = 0;
-    uint8_t blue = 0;
+    unsigned red = 0, green = 0, blue = 0;
     uint8_t brightness = 0;
     int led_pin = 18;
     int led_dma = 10;
@@ -20,9 +18,7 @@ int main(int argc, char *argv[]) {
 
     static struct option long_options[] = {
         {"power", required_argument, 0, 'P'},
-        {"red", required_argument, 0, 'r'},
-        {"green", required_argument, 0, 'g'},
-        {"blue", required_argument, 0, 'b'},
+        {"color", required_argument, 0, 'c'},
         {"brightness", required_argument, 0, 'B'},
         {"led-pin", required_argument, 0, 'p'},
         {"led-dma", required_argument, 0, 'd'},
@@ -37,14 +33,11 @@ int main(int argc, char *argv[]) {
             case 'P':
                 power = optarg;
                 break;
-            case 'r':
-                red = (uint8_t)atoi(optarg);
-                break;
-            case 'g':
-                green = (uint8_t)atoi(optarg);
-                break;
-            case 'b':
-                blue = (uint8_t)atoi(optarg);
+            case 'c':
+                if (sscanf(optarg, "#%2x%2x%2x", &red, &green, &blue) != 3) {
+                    fprintf(stderr, "Ungültige Farbe: %s\n", optarg);
+                    return 1;
+                }
                 break;
             case 'B':
                 brightness = (uint8_t)atoi(optarg);

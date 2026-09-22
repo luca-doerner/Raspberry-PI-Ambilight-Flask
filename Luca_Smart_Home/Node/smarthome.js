@@ -113,6 +113,24 @@ function decimals(step) {
     return text.includes(".") ? text.length - text.indexOf(".") - 1 : 0;
 }
 
+// the four sides of a "screen" setting, in the order the page shows them
+const SCREEN_SIDES = ["top", "left", "right", "bottom"];
+
+// number against min / max / step of the definition, fail(message) reports the problem
+function validateNumber(definition, value, fail) {
+    if (typeof value !== "number" || !Number.isFinite(value))
+        fail("muss eine Zahl sein");
+    if (definition.min !== null && value < definition.min)
+        fail(`muss mindestens ${definition.min} sein`);
+    if (definition.max !== null && value > definition.max)
+        fail(`darf höchstens ${definition.max} sein`);
+    const step = definition.step ?? 1;
+    const steps = (value - (definition.min ?? 0)) / step;
+    if (Math.abs(steps - Math.round(steps)) > 1e-9)
+        fail(step === 1 ? "muss eine ganze Zahl sein" : `muss in Schritten von ${step} sein`);
+    return Number((Math.round(steps) * step + (definition.min ?? 0)).toFixed(decimals(step)));
+}
+
 // checks a value against its definition (setting_definitions), returns the normalized value
 // or throws an HttpError with a message for the page
 function validateValue(definition, value) {
@@ -121,18 +139,21 @@ function validateValue(definition, value) {
     };
     switch (definition.type) {
         case "range":
-        case "number": {
-            if (typeof value !== "number" || !Number.isFinite(value))
-                fail("muss eine Zahl sein");
-            if (definition.min !== null && value < definition.min)
-                fail(`muss mindestens ${definition.min} sein`);
-            if (definition.max !== null && value > definition.max)
-                fail(`darf höchstens ${definition.max} sein`);
-            const step = definition.step ?? 1;
-            const steps = (value - (definition.min ?? 0)) / step;
-            if (Math.abs(steps - Math.round(steps)) > 1e-9)
-                fail(step === 1 ? "muss eine ganze Zahl sein" : `muss in Schritten von ${step} sein`);
-            return Number((Math.round(steps) * step + (definition.min ?? 0)).toFixed(decimals(step)));
+        case "number":
+            return validateNumber(definition, value, fail);
+        case "screen": {
+            if (value === null || typeof value !== "object" || Array.isArray(value))
+                fail(`braucht die vier Seiten (${SCREEN_SIDES.join(", ")})`);
+            const unknown = Object.keys(value).find((side) => !SCREEN_SIDES.includes(side));
+            if (unknown)
+                fail(`unbekannte Seite: ${unknown}`);
+            const sides = {};
+            for (const side of SCREEN_SIDES) {
+                if (!Object.hasOwn(value, side))
+                    fail(`${side} fehlt`);
+                sides[side] = validateNumber(definition, value[side], (message) => fail(`${side} ${message}`));
+            }
+            return sides;
         }
         case "boolean":
             if (typeof value !== "boolean")
@@ -298,6 +319,16 @@ async function setFeatureActive(id, active, onChange) {
     return changes;
 }
 
+// the exclusive oneshots of a device except one feature, e.g. a "static color" that should be
+// switched off when an exclusive service takes over the device
+async function exclusiveOneshots(deviceId, exceptId) {
+    const { rows } = await db.query(`
+        SELECT id, name FROM features
+        WHERE device_id = $1 AND kind = 'oneshot' AND exclusive AND id <> $2
+        ORDER BY id`, [deviceId, exceptId]);
+    return rows;
+}
+
 // marks the exclusive services of the device except one feature as stopped, so they do not start
 // again with the server; returns them as [{ id, name, active }] (active: before the change)
 async function stopExclusiveServices(deviceId, exceptId) {
@@ -315,6 +346,7 @@ async function stopExclusiveServices(deviceId, exceptId) {
 
 module.exports = {
     getTree, getPinned, setDevicePinned, getRoom, getDevice,
+    SCREEN_SIDES,
     getFeature, getDeviceSettings, loadSettings, validateValues, saveSettingValues,
-    activeServices, setFeatureActive, stopExclusiveServices,
+    activeServices, setFeatureActive, exclusiveOneshots, stopExclusiveServices,
 };

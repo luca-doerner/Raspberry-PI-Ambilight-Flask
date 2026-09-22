@@ -31,35 +31,16 @@
 
 #include <ws2811/ws2811.h>
 
+#include "leds.h"
+
 /*************** Configuration (values from config.json) ******************************************/
-#define COUNT_LEFT       37
-#define COUNT_TOP        71
-#define COUNT_RIGHT      39
-#define COUNT_BOTTOM     73
-#define LED_COUNT        (COUNT_LEFT + COUNT_TOP + COUNT_RIGHT + COUNT_BOTTOM)   // 220
-#define BRIGHTNESS       0.7
+#define BRIGHTNESS       1
 
 /*************** Global Variables *****************************************************************/
-#define MODE             "Ambilight"
-
-#define LED_PIN          18             // board.D18
-#define LED_DMA          10
-#define LED_STRIP        WS2811_STRIP_GRB
-
 #define CAP_WIDTH        640
 #define CAP_HEIGHT       480
 #define CAP_MAX_BUFFERS  4
 #define SIGNAL_TIMEOUT_S 2              // no frame for this long -> "Kein HDMI-Signal!"
-
-#define RESIZE_SIZE      18              // the 9 in cv2.resize(frame, (9, count))
-// how many grid steps (picture size / RESIZE_SIZE) the LED colors are taken away from each border
-// of the picture (with AUTO_BARS the top/bottom border is the edge of the detected black bars)
-#define DISTANCE_LEFT    1
-#define DISTANCE_TOP     1
-#define DISTANCE_RIGHT   1
-#define DISTANCE_BOTTOM  1
-#define BLACK_GRID_W     9              // sample grid for the black screen detection,
-#define BLACK_GRID_H     COUNT_LEFT     // spread over the whole frame (like the old resized_left)
 
 // automatic detection of black bars above and below the picture (letterbox)
 #define AUTO_BARS          1            // 0 = off, 1 = on
@@ -73,14 +54,11 @@
 #define DARK_GAMMA       0.2
 
 /*************** Changeable Variables *****************************************************************/
-double brightness = BRIGHTNESS;
-double smooth_ratio = SMOOTH_RATIO;
-double dark_gamma = DARK_GAMMA;
-unsigned int resize_size = RESIZE_SIZE;
-unsigned int distance_left = DISTANCE_LEFT;
-unsigned int distance_top = DISTANCE_TOP;
-unsigned int distance_right = DISTANCE_RIGHT;
-unsigned int distance_bottom = DISTANCE_BOTTOM;
+int black_grid_w = 9, black_grid_h;
+
+// Feature Variablen
+double brightness, smooth_ratio, dark_gamma;
+unsigned resize_size, distance_left, distance_top, distance_right, distance_bottom;
 
 typedef struct {
     int fd;
@@ -101,18 +79,6 @@ typedef struct {
 static volatile sig_atomic_t running = 1;
 
 static letterbox_t letterbox = { 0, 0, 0 };
-
-static rgb_t new_pixels[LED_COUNT];
-static rgb_t old_pixels[LED_COUNT];
-
-static ws2811_t strip = {
-    .freq = WS2811_TARGET_FREQ,
-    .dmanum = LED_DMA,
-    .channel = {
-        [0] = { .gpionum = LED_PIN, .count = LED_COUNT, .invert = 0, .brightness = 255, .strip_type = LED_STRIP },
-        [1] = { .gpionum = 0, .count = 0, .invert = 0, .brightness = 0 },
-    },
-};
 
 /*************** Helper Functions *****************************************************************/
 static void on_signal(int sig) {
@@ -233,7 +199,7 @@ static rgb_t frame_pixel(const capture_t *cap, const uint8_t *frame, int x, int 
 // get_dominant_color + calc_color_arr: fills new_pixels in LED order (left bottom->top,
 // top left->right, right top->bottom, bottom right->left). Only the picture between the black
 // bars (bar = bar height in rows) is used.
-static void calc_color_arr(const capture_t *cap, const uint8_t *frame, int bar) {
+static void calc_color_arr(const capture_t *cap, const uint8_t *frame, int bar, rgb_t new_pixels[], led_config_t *config) {
     int w = cap->width;
     int top = bar, h = cap->height - 2 * bar;   // picture area without the bars
     int n = 0;
@@ -246,30 +212,30 @@ static void calc_color_arr(const capture_t *cap, const uint8_t *frame, int bar) 
     int y_bottom = top + nearest(resize_size - distance_bottom, h, resize_size);
 
     // left: column x_left, bottom to top
-    for (int i = COUNT_LEFT - 1; i >= 0; i--)
-        new_pixels[n++] = frame_pixel(cap, frame, x_left, top + nearest(i, h, COUNT_LEFT));
+    for (int i = config->led_count_left - 1; i >= 0; i--)
+        new_pixels[n++] = frame_pixel(cap, frame, x_left, top + nearest(i, h, config->led_count_left));
     // top: row y_top, left to right
-    for (int i = 0; i < COUNT_TOP; i++)
-        new_pixels[n++] = frame_pixel(cap, frame, nearest(i, w, COUNT_TOP), y_top);
+    for (int i = 0; i < config->led_count_top; i++)
+        new_pixels[n++] = frame_pixel(cap, frame, nearest(i, w, config->led_count_top), y_top);
     // right: column x_right, top to bottom
-    for (int i = 0; i < COUNT_RIGHT; i++)
-        new_pixels[n++] = frame_pixel(cap, frame, x_right, top + nearest(i, h, COUNT_RIGHT));
+    for (int i = 0; i < config->led_count_right; i++)
+        new_pixels[n++] = frame_pixel(cap, frame, x_right, top + nearest(i, h, config->led_count_right));
     // bottom: row y_bottom, right to left
-    for (int i = COUNT_BOTTOM - 1; i >= 0; i--)
-        new_pixels[n++] = frame_pixel(cap, frame, nearest(i, w, COUNT_BOTTOM), y_bottom);
+    for (int i = config->led_count_bottom - 1; i >= 0; i--)
+        new_pixels[n++] = frame_pixel(cap, frame, nearest(i, w, config->led_count_bottom), y_bottom);
 }
 
-// Returns 1 if the whole screen is black: samples a BLACK_GRID_W x BLACK_GRID_H grid spread over
+// Returns 1 if the whole screen is black: samples a black_grid_w x black_grid_h grid spread over
 // the full frame and checks if the mean of all color values is <= 0.5 (np.mean(resized_left) <= 0.5)
 static int is_black_screen(const capture_t *cap, const uint8_t *frame) {
     long sum = 0;
-    for (int y = 0; y < BLACK_GRID_H; y++) {
-        for (int x = 0; x < BLACK_GRID_W; x++) {
-            rgb_t p = frame_pixel(cap, frame, nearest(x, cap->width, BLACK_GRID_W), nearest(y, cap->height, BLACK_GRID_H));
+    for (int y = 0; y < black_grid_h; y++) {
+        for (int x = 0; x < black_grid_w; x++) {
+            rgb_t p = frame_pixel(cap, frame, nearest(x, cap->width, black_grid_w), nearest(y, cap->height, black_grid_h));
             sum += p.r + p.g + p.b;
         }
     }
-    return sum * 2 <= 3L * BLACK_GRID_W * BLACK_GRID_H;
+    return sum * 2 <= 3L * black_grid_w * black_grid_h;
 }
 
 /*************** Black Bar Detection **************************************************************/
@@ -334,8 +300,8 @@ static void update_letterbox(const capture_t *cap, const uint8_t *frame) {
 }
 
 // get_smooth_color: darken dark colors, blend with the previous frame and write into the LED buffer
-static void get_smooth_color(ws2811_led_t *leds) {
-    for (int i = 0; i < LED_COUNT; i++) {
+static void get_smooth_color(ws2811_led_t *leds, rgb_t new_pixels[], rgb_t old_pixels[], led_config_t *config) {
+    for (int i = 0; i < config->led_count; i++) {
         rgb_t c = new_pixels[i];
         rgb_t o = old_pixels[i];
         double factor = pow((c.r + c.g + c.b) / 3.0 / 255.0, dark_gamma) * brightness;
@@ -347,17 +313,25 @@ static void get_smooth_color(ws2811_led_t *leds) {
     }
 }
 
-// pixels.fill((0,0,0)); pixels.show()
-static void leds_off(void) {
-    memset(strip.channel[0].leds, 0, LED_COUNT * sizeof(ws2811_led_t));
-    ws2811_render(&strip);
-}
-
 /*************** Main Function ********************************************************************/
-int main(void) {
+int main(int argc, char *argv[]) {
     struct sigaction sa = { .sa_handler = on_signal };   // no SA_RESTART, so select() wakes up
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+
+    led_config_t config = load_config(argc, argv);
+
+    rgb_t new_pixels[config.led_count];
+    rgb_t old_pixels[config.led_count];
+
+    ws2811_t strip = {
+        .freq = WS2811_TARGET_FREQ,
+        .dmanum = config.led_dma,
+        .channel = {
+            [0] = { .gpionum = config.led_pin, .count = config.led_count, .invert = 0, .brightness = 255, .strip_type = LED_STRIP },
+            [1] = { .gpionum = 0, .count = 0, .invert = 0, .brightness = 0 },
+        },
+    };
 
     // Initialize Socket
     int s = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
@@ -378,7 +352,7 @@ int main(void) {
             return 1;
         }
     }
-    printf("Started " MODE " (%dx%d, %d LEDs)\n", cap.width, cap.height, LED_COUNT);
+    printf("Started Ambilight (%dx%d, %d LEDs)\n", cap.width, cap.height, config.led_count);
 
     // Initialize LED strip
     ws2811_return_t ret = ws2811_init(&strip);
@@ -431,12 +405,12 @@ int main(void) {
         int black = is_black_screen(&cap, frame);
         if (AUTO_BARS && !black)
             update_letterbox(&cap, frame);
-        calc_color_arr(&cap, frame, letterbox.size);
+        calc_color_arr(&cap, frame, letterbox.size, new_pixels, &config);
         release_frame(&cap, &buf);
         if (black)
             memset(old_pixels, 0, sizeof old_pixels);
 
-        get_smooth_color(strip.channel[0].leds);
+        get_smooth_color(strip.channel[0].leds, new_pixels, old_pixels, &config);
         ret = ws2811_render(&strip);
         if (ret != WS2811_SUCCESS) {
             fprintf(stderr, "ws2811_render fehlgeschlagen: %s\n", ws2811_get_return_t_str(ret));
@@ -445,7 +419,7 @@ int main(void) {
         }
     }
 
-    leds_off();
+    leds_off(&strip);
     ws2811_fini(&strip);
     close_capture(&cap);
     return exit_code;
