@@ -164,9 +164,10 @@ async function saveSettings(feature, values) {
     return api(`/api/features/${feature.id}/settings`, { values });
 }
 
-// form of settings that are saved together with a button;
-// onSaved(result) is called with the answer of the server
-function settingsForm(feature, settings, { title, description, submitLabel, alwaysSubmit, errors, onSaved }) {
+// form of settings that are saved together with a button, also used for the device settings;
+// idPrefix: makes the ids of the inputs unique on the page; save(values): sends the changed values
+// and returns the answer of the server; onSaved(result, status) is called with that answer
+export function settingsForm(settings, { idPrefix, save, title, description, submitLabel, alwaysSubmit, errors, onSaved }) {
     const controls = new Map();
     const saved = new Map(settings.map((s) => [s.name, s.value]));
     const status = el("p", { class: "form-status muted", role: "status" });
@@ -188,7 +189,7 @@ function settingsForm(feature, settings, { title, description, submitLabel, alwa
     const sections = bySection(settings, null).map(([section, list]) => [
         section ? el("h4", {}, section) : null,
         list.map((setting) => {
-            const id = `setting-${feature.id}-${setting.name}`;
+            const id = `${idPrefix}-${setting.name}`;
             const control = settingInput(setting, id, { onInput: updateButton, onChange: updateButton });
             control.input.addEventListener("input", updateButton);
             controls.set(setting.name, control);
@@ -213,7 +214,7 @@ function settingsForm(feature, settings, { title, description, submitLabel, alwa
         button.disabled = true;
         status.textContent = "Speichere …";
         try {
-            const result = await saveSettings(feature, values);
+            const result = await save(values);
             for (const [name, value] of Object.entries(result.values)) {
                 saved.set(name, value);
                 controls.get(name).write(value);
@@ -320,7 +321,9 @@ function renderService(container, feature, { onFeaturesChanged }) {
 
     /* settings that need a restart */
     const restart = feature.settings.filter((s) => s.restart_required);
-    const restartForm = restart.length === 0 ? null : settingsForm(feature, restart, {
+    const restartForm = restart.length === 0 ? null : settingsForm(restart, {
+        idPrefix: `setting-${feature.id}`,
+        save: (values) => saveSettings(feature, values),
         title: "Einstellungen mit Neustart",
         description: "Werden erst mit „Speichern“ übernommen. Läuft der Dienst, wird er dafür neu gestartet.",
         submitLabel: "Speichern",
@@ -367,10 +370,12 @@ function renderOneshot(container, feature, { onFeaturesChanged }) {
     const errors = errorBox();
     const result = el("section", { class: "card" }, el("h3", {}, "Letzte Ausführung"), runResult(feature.state.lastRun));
 
-    const form = settingsForm(feature, feature.settings, {
+    const form = settingsForm(feature.settings, {
+        idPrefix: `setting-${feature.id}`,
+        save: (values) => saveSettings(feature, values),
         title: "Einstellungen",
         description: ["„Speichern und ausführen“ speichert die Einstellungen und startet das Programm einmal "
-            + "mit allen Einstellungen als ", el("code", {}, "--name=wert"), "."],
+            + "mit allen Einstellungen und den Geräte-Einstellungen als ", el("code", {}, "--name=wert"), "."],
         submitLabel: "Speichern und ausführen",
         alwaysSubmit: true,
         errors,

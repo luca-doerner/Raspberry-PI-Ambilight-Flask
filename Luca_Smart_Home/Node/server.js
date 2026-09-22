@@ -160,6 +160,11 @@ const ROUTES = [
         });
         sendJson(res, 200, device);
     }],
+    // { values: { name: value, ... } }; restarts the running services of the device if something changed
+    ["POST", /^\/api\/devices\/(\d+)\/settings$/, async (req, res, id) => {
+        const { values } = await readJson(req);
+        sendJson(res, 200, await features.applyDeviceSettings(Number(id), values));
+    }],
     ["POST", /^\/api\/devices\/(\d+)\/pinned$/, async (req, res, id) => {
         const { pinned } = await readJson(req);
         if (typeof pinned !== "boolean")

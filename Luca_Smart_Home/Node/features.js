@@ -7,6 +7,9 @@
 //   oneshot  runs once every time settings are saved, with all settings as --name=value;
 //            an exclusive oneshot stops the exclusive services of its device before it runs
 //
+// Both also get the settings of their device (device_setting_definitions) as --name=value;
+// changing a device setting restarts the running services of the device.
+//
 // A new kind needs a row in feature_kinds and a branch in applySettings (and maybe start / stop).
 const path = require("path");
 const dgram = require("dgram");
@@ -28,7 +31,7 @@ const runtimes = new Map();
 
 function runtime(id) {
     if (!runtimes.has(id))
-        runtimes.set(id, { proc: null, message: "Aus", lastRun: null });
+        runtimes.set(id, { proc: null, starting: null, message: "Aus", lastRun: null });
     return runtimes.get(id);
 }
 
@@ -44,8 +47,12 @@ function formatValue(value) {
     return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-function commandLine(feature) {
-    return feature.settings.map((setting) => `--${setting.name}=${formatValue(setting.value)}`);
+// every start (service and oneshot): all device settings, then all feature settings (also those
+// with restart_required); if both have the same name, both are passed and the feature value comes
+// last, so a program that takes the last one uses the feature value
+async function commandLine(feature) {
+    const deviceSettings = await smarthome.loadSettings("device", feature.device_id);
+    return [...deviceSettings, ...feature.settings].map((setting) => `--${setting.name}=${formatValue(setting.value)}`);
 }
 
 // printf() only writes full buffers into a pipe, stdbuf -oL makes the program write every line at once
@@ -82,10 +89,19 @@ async function sendLiveSettings(feature) {
 }
 
 /*************** Service **********************************************************************/
-async function startService(id) {
+// a second start while the first one still loads from the database waits for the first one,
+// so the program never runs twice
+function startService(id) {
     const rt = runtime(id);
     if (rt.proc)
-        return;
+        return Promise.resolve();
+    rt.starting ??= spawnService(id, rt).finally(() => {
+        rt.starting = null;
+    });
+    return rt.starting;
+}
+
+async function spawnService(id, rt) {
     const feature = await smarthome.getFeature(id);
     let program;
     try {
@@ -95,9 +111,10 @@ async function startService(id) {
         log(err.message, "server", feature);
         return;
     }
+    const args = await commandLine(feature);
 
     await new Promise((resolve) => {
-        const child = spawnProgram(program, commandLine(feature));
+        const child = spawnProgram(program, args);
         rt.proc = child;
         rt.message = "Läuft";
 
@@ -160,10 +177,11 @@ async function runOnce(id) {
         throw new HttpError(409, "Das Programm läuft noch, bitte kurz warten");
     const feature = await smarthome.getFeature(id);
     const program = programOf(feature);
+    const args = await commandLine(feature);
     const start = Date.now();
 
     return new Promise((resolve) => {
-        const child = spawnProgram(program, commandLine(feature));
+        const child = spawnProgram(program, args);
         rt.proc = child;
         rt.message = "Läuft";
         log(`${feature.name} ausgeführt`, "server", feature);
@@ -219,25 +237,17 @@ async function stopExclusiveServices(feature) {
 // a oneshot can also be run again without changes (empty values);
 // returns { values, restarted, run, stopped }
 async function applySettings(id, values) {
-    if (values === null || typeof values !== "object" || Array.isArray(values))
-        throw new HttpError(400, "values muss ein Objekt sein");
     const feature = await smarthome.getFeature(id);
-    if (Object.keys(values).length === 0 && feature.kind !== "oneshot")
+    const normalized = smarthome.validateValues(feature.settings, values);
+    if (Object.keys(normalized).length === 0 && feature.kind !== "oneshot")
         throw new HttpError(400, "Keine Einstellungen angegeben");
     // checked before anything is saved or stopped
     if (feature.kind === "oneshot" && runtime(id).proc !== null)
         throw new HttpError(409, "Das Programm läuft noch, bitte kurz warten");
     const definitions = new Map(feature.settings.map((setting) => [setting.name, setting]));
 
-    const normalized = {};
-    for (const [name, value] of Object.entries(values)) {
-        const definition = definitions.get(name);
-        if (!definition)
-            throw new HttpError(400, `Unbekannte Einstellung: ${name}`);
-        normalized[name] = smarthome.validateValue(definition, value);
-    }
     if (Object.keys(normalized).length > 0)
-        await smarthome.saveSettingValues(id, normalized);
+        await smarthome.saveSettingValues("feature", id, normalized);
     const result = { values: normalized, restarted: false, run: null, stopped: [] };
 
     if (feature.kind === "service") {
@@ -259,6 +269,31 @@ async function applySettings(id, values) {
         result.run = await runOnce(id);
     }
     return result;
+}
+
+// saves device settings; if a value changed, the running services of the device are restarted,
+// so they get the new values on the command line; returns { values, restarted: [names] }
+async function applyDeviceSettings(deviceId, values) {
+    const { settings, services } = await smarthome.getDeviceSettings(deviceId);
+    const normalized = smarthome.validateValues(settings, values);
+    if (Object.keys(normalized).length === 0)
+        throw new HttpError(400, "Keine Einstellungen angegeben");
+    const changed = settings.some((setting) =>
+        Object.hasOwn(normalized, setting.name) && JSON.stringify(setting.value) !== JSON.stringify(normalized[setting.name]));
+    await smarthome.saveSettingValues("device", deviceId, normalized);
+
+    const restarted = [];
+    if (changed) {
+        for (const service of services) {
+            if (runtime(service.id).proc === null)
+                continue;
+            log(`${service.name} wird neu gestartet, weil sich Geräte-Einstellungen geändert haben`, "server", service);
+            await stopProgram(service.id);
+            await startService(service.id);
+            restarted.push(service.name);
+        }
+    }
+    return { values: normalized, restarted };
 }
 
 /*************** State ************************************************************************/
@@ -287,4 +322,4 @@ async function shutdown() {
     udp?.close();
 }
 
-module.exports = { init, setActive, applySettings, state, shutdown };
+module.exports = { init, setActive, applySettings, applyDeviceSettings, state, shutdown };

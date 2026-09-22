@@ -1,6 +1,6 @@
 // the smart home page: navigation on the left, pages /rooms, /rooms/:id and /devices/:id
 import { api, el, errorBox, icon } from "./lib.js";
-import { renderFeature } from "./feature-panel.js";
+import { renderFeature, settingsForm } from "./feature-panel.js";
 
 const EXPANDED_KEY = "smarthome.expanded";
 const DEVICE_POLL_MS = 5000;   // how often the dots of the feature tabs are updated
@@ -285,6 +285,29 @@ function pinButton(device, errors) {
     return button;
 }
 
+// settings of the device that all its programs get (null if it has none); saving restarts the
+// running services of the device, onRestarted updates the dots of the feature tabs
+function deviceSettingsForm(device, errors, onRestarted) {
+    if (device.settings.length === 0)
+        return null;
+    return settingsForm(device.settings, {
+        idPrefix: `device-setting-${device.id}`,
+        save: (values) => api(`/api/devices/${device.id}/settings`, { values }),
+        title: "Geräte-Einstellungen",
+        description: ["Gelten für alle Features dieses Geräts, jedes Programm bekommt sie beim Start als ",
+            el("code", {}, "--name=wert"), ". Beim Speichern werden laufende Dienste neu gestartet."],
+        submitLabel: "Speichern",
+        errors,
+        onSaved(result, status) {
+            status.textContent = result.restarted.length > 0
+                ? `Gespeichert, neu gestartet: ${result.restarted.join(", ")}`
+                : "Gespeichert";
+            if (result.restarted.length > 0)
+                onRestarted();
+        },
+    });
+}
+
 // device: from /api/devices/:id
 async function renderDevicePage(device) {
     document.title = `${device.name} · Smart Home`;
@@ -312,6 +335,7 @@ async function renderDevicePage(device) {
                 pinButton(device, errors),
                 el("a", { class: "button", href: parent.href }, icon("up"), `Zu ${parent.label}`))),
         errors.node,
+        deviceSettingsForm(device, errors, () => onFeaturesChanged()),
         el("h2", {}, "Features"),
         tabsSlot,
         exclusiveHints.length > 0 ? el("p", { class: "muted hint" }, exclusiveHints.join(" ")) : null,

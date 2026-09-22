@@ -91,6 +91,7 @@ async function getDevice(id) {
         name: device.name,
         type: device.type,
         pinned: device.pinned_at !== null,
+        settings: await loadSettings("device", id),
         path,
         parent: path[path.length - 2],
         children: await listDevices("parent_device_id", id),
@@ -159,25 +160,25 @@ function validateValue(definition, value) {
     }
 }
 
-// feature with its setting definitions and current values:
-// { id, device_id, type, name, kind, executable, udp_port, exclusive, active,
-//   settings: [{ name, label, type, min, max, step, unit, options, section, restart_required, value }] }
-async function getFeature(id) {
-    const { rows: [feature] } = await db.query(`
-        SELECT id, device_id, type, name, kind, executable, udp_port, exclusive, active
-        FROM features WHERE id = $1`, [id]);
-    if (!feature)
-        throw new HttpError(404, "Feature nicht gefunden");
+// the settings of a feature or a device: tables and extra columns (fixed names, never from a request)
+const SETTING_TABLES = {
+    feature: { definitions: "setting_definitions", values: "settings", key: "feature_id", extra: ", d.restart_required" },
+    device: { definitions: "device_setting_definitions", values: "device_settings", key: "device_id", extra: "" },
+};
 
+// setting definitions with their current values, owner: "feature" or "device":
+// [{ name, label, type, min, max, step, unit, options, section, (restart_required,) value }]
+async function loadSettings(owner, id) {
+    const t = SETTING_TABLES[owner];
     const { rows } = await db.query(`
-        SELECT d.name, d.label, d.type, d.min, d.max, d.step, d.unit, d.options, d.section,
-               d.restart_required, d.default_value, s.value
-        FROM setting_definitions d
-        LEFT JOIN settings s ON s.feature_id = d.feature_id AND s.name = d.name
-        WHERE d.feature_id = $1
+        SELECT d.name, d.label, d.type, d.min, d.max, d.step, d.unit, d.options, d.section${t.extra},
+               d.default_value, s.value
+        FROM ${t.definitions} d
+        LEFT JOIN ${t.values} s ON s.${t.key} = d.${t.key} AND s.name = d.name
+        WHERE d.${t.key} = $1
         ORDER BY d.sort_order, d.name`, [id]);
 
-    feature.settings = rows.map(({ default_value: defaultValue, value, ...definition }) => {
+    return rows.map(({ default_value: defaultValue, value, ...definition }) => {
         // a saved value that does not fit a changed definition anymore falls back to the default
         let current = defaultValue;
         if (value !== null) {
@@ -191,16 +192,54 @@ async function getFeature(id) {
         const options = hasOptions ? selectOptions(definition.options) : null;
         return { ...definition, options, value: current };
     });
-    return feature;
 }
 
 // values: { name: normalized value }, see validateValue
-async function saveSettingValues(featureId, values) {
+async function saveSettingValues(owner, id, values) {
+    const t = SETTING_TABLES[owner];
     await db.query(`
-        INSERT INTO settings (feature_id, name, value)
+        INSERT INTO ${t.values} (${t.key}, name, value)
         SELECT $1, name, value FROM jsonb_each($2::jsonb) AS v (name, value)
-        ON CONFLICT (feature_id, name) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-        [featureId, JSON.stringify(values)]);
+        ON CONFLICT (${t.key}, name) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+        [id, JSON.stringify(values)]);
+}
+
+// checks values from a request against the definitions ([{ name, ... }]), returns the normalized ones
+function validateValues(definitions, values) {
+    if (values === null || typeof values !== "object" || Array.isArray(values))
+        throw new HttpError(400, "values muss ein Objekt sein");
+    const byName = new Map(definitions.map((definition) => [definition.name, definition]));
+    const normalized = {};
+    for (const [name, value] of Object.entries(values)) {
+        const definition = byName.get(name);
+        if (!definition)
+            throw new HttpError(400, `Unbekannte Einstellung: ${name}`);
+        normalized[name] = validateValue(definition, value);
+    }
+    return normalized;
+}
+
+// feature with its setting definitions and current values:
+// { id, device_id, type, name, kind, executable, udp_port, exclusive, active,
+//   settings: [{ name, label, type, min, max, step, unit, options, section, restart_required, value }] }
+async function getFeature(id) {
+    const { rows: [feature] } = await db.query(`
+        SELECT id, device_id, type, name, kind, executable, udp_port, exclusive, active
+        FROM features WHERE id = $1`, [id]);
+    if (!feature)
+        throw new HttpError(404, "Feature nicht gefunden");
+    feature.settings = await loadSettings("feature", id);
+    return feature;
+}
+
+// device settings (loadSettings) and the services of the device, for applying device settings
+async function getDeviceSettings(deviceId) {
+    const { rows: [device] } = await db.query("SELECT id FROM devices WHERE id = $1", [deviceId]);
+    if (!device)
+        throw new HttpError(404, "Gerät nicht gefunden");
+    const { rows: services } = await db.query(
+        "SELECT id, name FROM features WHERE device_id = $1 AND kind = 'service' ORDER BY id", [deviceId]);
+    return { settings: await loadSettings("device", deviceId), services };
 }
 
 // services that were started before the server stopped
@@ -276,5 +315,6 @@ async function stopExclusiveServices(deviceId, exceptId) {
 
 module.exports = {
     getTree, getPinned, setDevicePinned, getRoom, getDevice,
-    getFeature, validateValue, saveSettingValues, activeServices, setFeatureActive, stopExclusiveServices,
+    getFeature, getDeviceSettings, loadSettings, validateValues, saveSettingValues,
+    activeServices, setFeatureActive, stopExclusiveServices,
 };

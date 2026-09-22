@@ -156,19 +156,6 @@ CREATE TABLE IF NOT EXISTS setting_definitions (
     PRIMARY KEY (feature_id, name)
 );
 
--- The rules for type and options are replaced on every run, so a new type only has to be added
--- here (CREATE TABLE IF NOT EXISTS does not change an existing table). setting_definitions_check
--- is the options rule of databases from before the rules had names.
-ALTER TABLE setting_definitions DROP CONSTRAINT IF EXISTS setting_definitions_type_check;
-ALTER TABLE setting_definitions ADD CONSTRAINT setting_definitions_type_check
-    CHECK (type IN ('range', 'number', 'boolean', 'text', 'select', 'button_select', 'color'));
-
-ALTER TABLE setting_definitions DROP CONSTRAINT IF EXISTS setting_definitions_check;
-ALTER TABLE setting_definitions DROP CONSTRAINT IF EXISTS setting_definitions_options_check;
--- COALESCE: without options jsonb_typeof is NULL and a CHECK lets NULL pass
-ALTER TABLE setting_definitions ADD CONSTRAINT setting_definitions_options_check
-    CHECK (type NOT IN ('select', 'button_select') OR COALESCE(jsonb_typeof(options) = 'array', false));
-
 -- the current value of a setting, e.g. brightness = 70; settings without a row use their default_value
 CREATE TABLE IF NOT EXISTS settings (
     feature_id BIGINT NOT NULL REFERENCES features (id) ON DELETE CASCADE,
@@ -177,6 +164,57 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (feature_id, name)
 );
+
+-- settings of a device that are the same for all of its features, e.g. led_count of the LEDs;
+-- every program of a feature of the device gets all of them as --name=value when it starts, before
+-- the feature settings; changing them restarts the running services of the device.
+-- Same columns as setting_definitions, without restart_required (they always need a restart).
+CREATE TABLE IF NOT EXISTS device_setting_definitions (
+    device_id     BIGINT NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
+    name          TEXT NOT NULL CHECK (name ~ '^[a-z][a-z0-9_]*$'),
+    label         TEXT NOT NULL,
+    type          TEXT NOT NULL,
+    default_value JSONB NOT NULL,
+    min           DOUBLE PRECISION,
+    max           DOUBLE PRECISION,
+    step          DOUBLE PRECISION,
+    unit          TEXT,
+    options       JSONB,
+    section       TEXT,
+    sort_order    INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS device_settings (
+    device_id  BIGINT NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    value      JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (device_id, name)
+);
+
+-- The rules for type and options of both definition tables are replaced on every run, so a new
+-- type only has to be added here (CREATE TABLE IF NOT EXISTS does not change an existing table).
+-- setting_definitions_check is the options rule of databases from before the rules had names.
+ALTER TABLE setting_definitions DROP CONSTRAINT IF EXISTS setting_definitions_check;
+DO $$
+DECLARE
+    definitions TEXT;
+BEGIN
+    FOREACH definitions IN ARRAY ARRAY['setting_definitions', 'device_setting_definitions'] LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', definitions, definitions || '_type_check');
+        EXECUTE format($sql$ALTER TABLE %I ADD CONSTRAINT %I
+            CHECK (type IN ('range', 'number', 'boolean', 'text', 'select', 'button_select', 'color'))$sql$,
+            definitions, definitions || '_type_check');
+
+        -- COALESCE: without options jsonb_typeof is NULL and a CHECK lets NULL pass
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', definitions, definitions || '_options_check');
+        EXECUTE format($sql$ALTER TABLE %I ADD CONSTRAINT %I
+            CHECK (type NOT IN ('select', 'button_select') OR COALESCE(jsonb_typeof(options) = 'array', false))$sql$,
+            definitions, definitions || '_options_check');
+    END LOOP;
+END
+$$;
 
 -- people who can log in to the web page, added with Node/user.js (there is no sign up page)
 CREATE TABLE IF NOT EXISTS users (
