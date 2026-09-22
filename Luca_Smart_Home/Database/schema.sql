@@ -138,22 +138,35 @@ CREATE TABLE IF NOT EXISTS setting_definitions (
     -- key for the database, UDP and the command line, e.g. "brightness"
     name             TEXT NOT NULL CHECK (name ~ '^[a-z][a-z0-9_]*$'),
     label            TEXT NOT NULL,     -- shown on the page, e.g. "Helligkeit"
-    -- range: slider, number: number field, boolean: switch, text, select: list of options, color: #rrggbb
-    type             TEXT NOT NULL CHECK (type IN ('range', 'number', 'boolean', 'text', 'select', 'color')),
+    -- range: slider, number: number field, boolean: switch, text, select: list of options,
+    -- button_select: one button per option, color: #rrggbb (allowed types: see the constraint below)
+    type             TEXT NOT NULL,
     default_value    JSONB NOT NULL,    -- used until the setting is changed, e.g. 70, true, "HDMI 1"
     min              DOUBLE PRECISION,  -- range / number
     max              DOUBLE PRECISION,  -- range / number
     step             DOUBLE PRECISION,  -- range / number, 1 = whole numbers only (default)
     unit             TEXT,              -- shown after the value, e.g. "%"
-    options          JSONB,             -- select: ["HDMI 1", "HDMI 2"] or [{"value": 1, "label": "HDMI 1"}]
+    -- select / button_select: ["HDMI 1", "HDMI 2"] or [{"value": 1, "label": "HDMI 1"}]
+    options          JSONB,
     section          TEXT,              -- heading on the page, settings with the same section are shown together
     -- service only: the program has to be restarted to use a new value (saved with a button)
     restart_required BOOLEAN NOT NULL DEFAULT false,
     sort_order       INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (feature_id, name),
-    -- COALESCE: without options jsonb_typeof is NULL and a CHECK lets NULL pass
-    CHECK (type <> 'select' OR COALESCE(jsonb_typeof(options) = 'array', false))
+    PRIMARY KEY (feature_id, name)
 );
+
+-- The rules for type and options are replaced on every run, so a new type only has to be added
+-- here (CREATE TABLE IF NOT EXISTS does not change an existing table). setting_definitions_check
+-- is the options rule of databases from before the rules had names.
+ALTER TABLE setting_definitions DROP CONSTRAINT IF EXISTS setting_definitions_type_check;
+ALTER TABLE setting_definitions ADD CONSTRAINT setting_definitions_type_check
+    CHECK (type IN ('range', 'number', 'boolean', 'text', 'select', 'button_select', 'color'));
+
+ALTER TABLE setting_definitions DROP CONSTRAINT IF EXISTS setting_definitions_check;
+ALTER TABLE setting_definitions DROP CONSTRAINT IF EXISTS setting_definitions_options_check;
+-- COALESCE: without options jsonb_typeof is NULL and a CHECK lets NULL pass
+ALTER TABLE setting_definitions ADD CONSTRAINT setting_definitions_options_check
+    CHECK (type NOT IN ('select', 'button_select') OR COALESCE(jsonb_typeof(options) = 'array', false));
 
 -- the current value of a setting, e.g. brightness = 70; settings without a row use their default_value
 CREATE TABLE IF NOT EXISTS settings (

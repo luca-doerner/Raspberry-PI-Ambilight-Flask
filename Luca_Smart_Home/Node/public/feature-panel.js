@@ -78,6 +78,55 @@ function settingInput(setting, id, { onInput = () => {}, onChange = () => {} }) 
                 input,
             };
         }
+        case "button_select": {
+            // one button per option, like a button slicer; works like radio buttons: click or
+            // arrow keys select, only the selected button is in the tab order
+            const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+            let value = setting.value;
+            const buttons = setting.options.map((option) => el("button", {
+                type: "button", class: "choice", role: "radio",
+            }, option.label));
+            const group = el("div", { class: "button-select", role: "radiogroup", id, "aria-labelledby": `${id}-label` }, buttons);
+
+            const show = () => buttons.forEach((button, i) => {
+                const selected = same(setting.options[i].value, value);
+                button.setAttribute("aria-checked", String(selected));
+                button.tabIndex = selected || (i === 0 && !setting.options.some((o) => same(o.value, value))) ? 0 : -1;
+            });
+            const select = (i) => {
+                if (same(setting.options[i].value, value))
+                    return;
+                value = setting.options[i].value;
+                show();
+                buttons[i].focus();
+                group.dispatchEvent(new Event("input"));   // the form notices the change
+                onChange();
+            };
+            buttons.forEach((button, i) => {
+                button.addEventListener("click", () => select(i));
+                button.addEventListener("keydown", (event) => {
+                    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+                    if (step) {
+                        event.preventDefault();
+                        select((i + step + buttons.length) % buttons.length);
+                    }
+                });
+            });
+            show();
+
+            // the group is used like an <input> by the forms: it is always valid
+            group.checkValidity = () => true;
+            group.reportValidity = () => true;
+            return {
+                node: group,
+                read: () => value,
+                write: (newValue) => {
+                    value = newValue;
+                    show();
+                },
+                input: group,
+            };
+        }
         case "color": {
             const input = el("input", { type: "color", id, value: setting.value });
             input.addEventListener("input", onInput);
@@ -94,7 +143,7 @@ function settingInput(setting, id, { onInput = () => {}, onChange = () => {} }) 
 
 function settingRow(setting, id, control) {
     return el("div", { class: "setting-row" },
-        el("label", { for: id }, setting.label),
+        el("label", { for: id, id: `${id}-label` }, setting.label),
         control.node);
 }
 

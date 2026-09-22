@@ -143,7 +143,8 @@ function validateValue(definition, value) {
             if (value.length > 1000 || /[\r\n]/.test(value))
                 fail("darf höchstens 1000 Zeichen und keine Zeilenumbrüche haben");
             return value;
-        case "select": {
+        case "select":
+        case "button_select": {
             const option = selectOptions(definition.options).find((o) => JSON.stringify(o.value) === JSON.stringify(value));
             if (!option)
                 fail("ist keine der möglichen Auswahlen");
@@ -186,7 +187,8 @@ async function getFeature(id) {
                 // keep the default
             }
         }
-        const options = definition.type === "select" ? selectOptions(definition.options) : null;
+        const hasOptions = definition.type === "select" || definition.type === "button_select";
+        const options = hasOptions ? selectOptions(definition.options) : null;
         return { ...definition, options, value: current };
     });
     return feature;
