@@ -22,9 +22,10 @@
           - build-essential
           - nodejs
           - npm
+          - postgresql-client
         state: present
         update_cache: yes
-        
+
     ################ Stop the running Node server ################
     - name: Gather services
       service_facts:
@@ -50,6 +51,20 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: u=rwX,g=rX,o=rX
+
+    # both files can run on every deploy: schema.sql only creates what is missing,
+    # seed.sql only inserts the start data while there is no ambilight feature yet
+    - name: Create database schema and start data
+      command: >-
+        psql -v ON_ERROR_STOP=1 -h localhost
+        -U {{ smart_home_db_user }} -d {{ smart_home_db_name }}
+        -f {{ smart_home_dir }}/Database/{{ item }}
+      environment:
+        PGPASSWORD: "{{ smart_home_db_password }}"
+      loop:
+        - schema.sql
+        - seed.sql
+      changed_when: false
 
     - name: Build Smart Home C component
       command: make

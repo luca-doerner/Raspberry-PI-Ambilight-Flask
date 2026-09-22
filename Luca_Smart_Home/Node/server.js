@@ -10,9 +10,13 @@
  * Environment variables:
  *   PORT           web server port (default 3000)
  *   AMBILIGHT_BIN  path to the compiled ambilight program
+ *                  (default: executable of the feature in the database, otherwise ../C/ambilight)
  *   UDP_HOST       receiver of the UDP messages (default 127.0.0.1)
  *   PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
- *                  PostgreSQL database the settings are saved in
+ *                  PostgreSQL database (Database/schema.sql), the settings are saved
+ *                  at the feature of type "ambilight"
+ *   AMBILIGHT_FEATURE_ID
+ *                  id of the feature to use if there is more than one of type "ambilight"
  */
 const http = require("http");
 const fs = require("fs");
@@ -25,8 +29,10 @@ const { Pool } = require("pg");
 const PORT = Number(process.env.PORT) || 5000;
 const UDP_HOST = process.env.UDP_HOST || "127.0.0.1";
 const UDP_PORT = 9000;
-const AMBILIGHT_BIN = process.env.AMBILIGHT_BIN
-    || path.join(__dirname, "..", "C", "ambilight");
+const PROJECT_DIR = path.join(__dirname, "..");   // Luca_Smart_Home/
+const FEATURE_TYPE = "ambilight";
+const FEATURE_ID = Number(process.env.AMBILIGHT_FEATURE_ID) || null;
+let ambilightBin = process.env.AMBILIGHT_BIN || path.join(PROJECT_DIR, "C", "ambilight");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const STOP_TIMEOUT_MS = 3000;
 const LOG_LINES = 200;    // how many output lines are kept for newly opened pages
@@ -106,8 +112,8 @@ function startAmbilight() {
             return resolve();
 
         // printf() only writes full buffers into a pipe, stdbuf -oL makes it write every line at once
-        const [command, args] = process.platform === "linux" ? ["stdbuf", ["-oL", AMBILIGHT_BIN]] : [AMBILIGHT_BIN, []];
-        const proc = spawn(command, args, { cwd: path.dirname(AMBILIGHT_BIN), stdio: ["ignore", "pipe", "pipe"] });
+        const [command, args] = process.platform === "linux" ? ["stdbuf", ["-oL", ambilightBin]] : [ambilightBin, []];
+        const proc = spawn(command, args, { cwd: path.dirname(ambilightBin), stdio: ["ignore", "pipe", "pipe"] });
         ambilight = proc;
         message = "Läuft";
 
@@ -206,7 +212,7 @@ const db = new Pool({ max: 1 });
 db.on("error", (err) => log(`Datenbankfehler: ${err.message}`, "server"));
 
 const dirty = new Set();      // names of settings that were changed but are not saved yet
-let settingsLoaded = false;
+let featureId = null;         // id of the ambilight feature, set once the settings are loaded
 let saveTimer = null;
 
 function currentSettings() {
@@ -216,17 +222,29 @@ function currentSettings() {
     return settings;
 }
 
+// the ambilight feature: AMBILIGHT_FEATURE_ID or the only feature of type "ambilight"
+async function findFeature() {
+    const { rows } = FEATURE_ID
+        ? await db.query("SELECT id, name, executable FROM features WHERE id = $1 AND type = $2", [FEATURE_ID, FEATURE_TYPE])
+        : await db.query("SELECT id, name, executable FROM features WHERE type = $1 ORDER BY id", [FEATURE_TYPE]);
+    if (rows.length === 0)
+        throw new Error(FEATURE_ID
+            ? `kein Feature mit id ${FEATURE_ID} vom Typ "${FEATURE_TYPE}"`
+            : `kein Feature vom Typ "${FEATURE_TYPE}" (Database/seed.sql ausführen)`);
+    if (rows.length > 1)
+        log(`Mehrere Features vom Typ "${FEATURE_TYPE}", nehme id ${rows[0].id} (AMBILIGHT_FEATURE_ID setzen)`, "server");
+    return rows[0];
+}
+
 // saved values replace the start values, unknown or invalid ones are ignored;
 // tries again until the database is reachable (PostgreSQL may start after this server)
 async function loadSettings() {
     try {
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS ambilight_settings (
-                name       TEXT PRIMARY KEY,
-                value      DOUBLE PRECISION NOT NULL,
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-            )`);
-        const { rows } = await db.query("SELECT name, value FROM ambilight_settings");
+        const feature = await findFeature();
+        if (!process.env.AMBILIGHT_BIN && feature.executable)
+            ambilightBin = path.resolve(PROJECT_DIR, feature.executable);
+
+        const { rows } = await db.query("SELECT name, value FROM settings WHERE feature_id = $1", [feature.id]);
         for (const { name, value } of rows) {
             if (dirty.has(name))   // changed on the web page while the database was unreachable
                 continue;
@@ -236,15 +254,15 @@ async function loadSettings() {
                 log(`Gespeicherter Wert ignoriert: ${err.message}`, "server");
             }
         }
-        settingsLoaded = true;
-        log(`Einstellungen aus der Datenbank geladen (${rows.length} Werte)`, "server");
+        featureId = feature.id;
+        log(`Einstellungen von Feature "${feature.name}" (id ${feature.id}) geladen (${rows.length} Werte), Programm: ${ambilightBin}`, "server");
 
         if (dirty.size > 0)
             saveSettings();
         if (ambilight)
             sendAllSettings().catch((err) => log(`Einstellungen nicht gesendet: ${err.message}`, "server"));
     } catch (err) {
-        log(`Datenbank nicht erreichbar, neuer Versuch in ${DB_RETRY_MS / 1000} s: ${err.message}`, "server");
+        log(`Einstellungen nicht geladen, neuer Versuch in ${DB_RETRY_MS / 1000} s: ${err.message}`, "server");
         setTimeout(loadSettings, DB_RETRY_MS);
     }
 }
@@ -262,17 +280,17 @@ function saveSettings(name) {
 async function writeSettings() {
     clearTimeout(saveTimer);
     saveTimer = null;
-    if (!settingsLoaded || dirty.size === 0)
+    if (featureId === null || dirty.size === 0)
         return;
 
     const names = [...dirty];
     dirty.clear();
     try {
         await db.query(`
-            INSERT INTO ambilight_settings (name, value)
-            SELECT * FROM unnest($1::text[], $2::double precision[])
-            ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-            [names, names.map((name) => SETTINGS[name].value)]);
+            INSERT INTO settings (feature_id, name, value)
+            SELECT $1, name, to_jsonb(value) FROM unnest($2::text[], $3::double precision[]) AS s (name, value)
+            ON CONFLICT (feature_id, name) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+            [featureId, names, names.map((name) => SETTINGS[name].value)]);
     } catch (err) {
         for (const name of names)
             dirty.add(name);
@@ -393,7 +411,7 @@ loadSettings();
 const server = http.createServer(handle);
 server.listen(PORT, () => {
     console.log(`Webserver läuft auf http://localhost:${PORT}`);
-    console.log(`Ambilight-Programm: ${AMBILIGHT_BIN}`);
+    console.log(`Ambilight-Programm: ${ambilightBin}`);
     console.log(`UDP-Nachrichten an ${UDP_HOST}:${UDP_PORT}`);
 });
 
