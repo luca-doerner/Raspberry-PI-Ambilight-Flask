@@ -29,5 +29,8 @@ jobs:
           SERVER_IP: ${{ vars.SERVER_IP }}
           TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: ansible-playbook -i deploy/inventory.ini deploy/ansible.yml

@@ -11,13 +11,15 @@
  *   PORT           web server port (default 3000)
  *   AMBILIGHT_BIN  path to the compiled ambilight program
  *   UDP_HOST       receiver of the UDP messages (default 127.0.0.1)
- *   SETTINGS_FILE  file the settings are saved in (default settings.json next to this file)
+ *   PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
+ *                  PostgreSQL database the settings are saved in
  */
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const dgram = require("dgram");
 const { spawn } = require("child_process");
+const { Pool } = require("pg");
 
 /*************** Configuration ****************************************************************/
 const PORT = Number(process.env.PORT) || 5000;
@@ -28,8 +30,8 @@ const AMBILIGHT_BIN = process.env.AMBILIGHT_BIN
 const PUBLIC_DIR = path.join(__dirname, "public");
 const STOP_TIMEOUT_MS = 3000;
 const LOG_LINES = 200;    // how many output lines are kept for newly opened pages
-const SETTINGS_FILE = process.env.SETTINGS_FILE || path.join(__dirname, "settings.json");
 const SAVE_DELAY_MS = 1000;   // slider moves are collected and saved together
+const DB_RETRY_MS = 5000;     // wait time before the database is tried again
 const STARTED_LINE = "Started";   // ambilight.c prints this after its UDP socket is ready
 
 // allowed settings with their range, start values are the constants from ambilight.c
@@ -197,7 +199,16 @@ async function sendAllSettings() {
         await sendSetting(name, setting.value);
 }
 
-/*************** Settings File ****************************************************************/
+/*************** Settings Database ************************************************************/
+// the connection comes from the PG* environment variables; only one connection,
+// so the saves are executed in the order they were started
+const db = new Pool({ max: 1 });
+db.on("error", (err) => log(`Datenbankfehler: ${err.message}`, "server"));
+
+const dirty = new Set();      // names of settings that were changed but are not saved yet
+let settingsLoaded = false;
+let saveTimer = null;
+
 function currentSettings() {
     const settings = {};
     for (const [name, setting] of Object.entries(SETTINGS))
@@ -205,43 +216,68 @@ function currentSettings() {
     return settings;
 }
 
-// saved values replace the start values, unknown or invalid ones are ignored
-function loadSettings() {
-    let saved;
+// saved values replace the start values, unknown or invalid ones are ignored;
+// tries again until the database is reachable (PostgreSQL may start after this server)
+async function loadSettings() {
     try {
-        saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
-    } catch (err) {
-        if (err.code !== "ENOENT")
-            log(`Einstellungen konnten nicht geladen werden: ${err.message}`, "server");
-        return;
-    }
-    for (const [name, value] of Object.entries(saved)) {
-        try {
-            SETTINGS[name].value = validateSetting(name, value);
-        } catch (err) {
-            log(`Gespeicherter Wert ignoriert: ${err.message}`, "server");
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS ambilight_settings (
+                name       TEXT PRIMARY KEY,
+                value      DOUBLE PRECISION NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )`);
+        const { rows } = await db.query("SELECT name, value FROM ambilight_settings");
+        for (const { name, value } of rows) {
+            if (dirty.has(name))   // changed on the web page while the database was unreachable
+                continue;
+            try {
+                SETTINGS[name].value = validateSetting(name, value);
+            } catch (err) {
+                log(`Gespeicherter Wert ignoriert: ${err.message}`, "server");
+            }
         }
+        settingsLoaded = true;
+        log(`Einstellungen aus der Datenbank geladen (${rows.length} Werte)`, "server");
+
+        if (dirty.size > 0)
+            saveSettings();
+        if (ambilight)
+            sendAllSettings().catch((err) => log(`Einstellungen nicht gesendet: ${err.message}`, "server"));
+    } catch (err) {
+        log(`Datenbank nicht erreichbar, neuer Versuch in ${DB_RETRY_MS / 1000} s: ${err.message}`, "server");
+        setTimeout(loadSettings, DB_RETRY_MS);
     }
-    log(`Einstellungen geladen aus ${SETTINGS_FILE}`, "server");
 }
 
-let saveTimer = null;
-
-function saveSettings() {
+// name (optional): the setting that was changed
+function saveSettings(name) {
+    if (name)
+        dirty.add(name);
     clearTimeout(saveTimer);
     saveTimer = setTimeout(writeSettings, SAVE_DELAY_MS);
 }
 
-// writes into a temporary file first, so a power cut never leaves a half written settings.json
-function writeSettings() {
+// only changed settings are written, so saved values that could not be loaded yet are never
+// overwritten with start values; before loading, the changes are kept until loadSettings saves them
+async function writeSettings() {
     clearTimeout(saveTimer);
     saveTimer = null;
-    const tmp = `${SETTINGS_FILE}.tmp`;
+    if (!settingsLoaded || dirty.size === 0)
+        return;
+
+    const names = [...dirty];
+    dirty.clear();
     try {
-        fs.writeFileSync(tmp, JSON.stringify(currentSettings(), null, 4) + "\n");
-        fs.renameSync(tmp, SETTINGS_FILE);
+        await db.query(`
+            INSERT INTO ambilight_settings (name, value)
+            SELECT * FROM unnest($1::text[], $2::double precision[])
+            ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+            [names, names.map((name) => SETTINGS[name].value)]);
     } catch (err) {
-        log(`Einstellungen konnten nicht gespeichert werden: ${err.message}`, "server");
+        for (const name of names)
+            dirty.add(name);
+        log(`Einstellungen nicht gespeichert, neuer Versuch in ${DB_RETRY_MS / 1000} s: ${err.message}`, "server");
+        saveTimer = setTimeout(writeSettings, DB_RETRY_MS);
     }
 }
 
@@ -337,7 +373,7 @@ async function handle(req, res) {
                     return sendJson(res, 400, { error: err.message });
                 }
                 SETTINGS[name].value = normalized;
-                saveSettings();
+                saveSettings(name);
                 await sendSetting(name, normalized);
                 return sendJson(res, 200, { name, value: normalized });
             }
@@ -363,9 +399,9 @@ server.listen(PORT, () => {
 
 // switch the LEDs off when the web server is stopped
 async function shutdown() {
-    if (saveTimer)
-        writeSettings();
+    await writeSettings();
     await stopAmbilight();
+    await db.end().catch(() => {});
     udp.close();
     server.close();
     process.exit(0);

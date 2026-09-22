@@ -5,7 +5,17 @@
     smart_home_dir: "/home/{{ ansible_user }}/Luca_Smart_Home"
     smart_home_service: luca-smart-home
     smart_home_port: 5000
+    # PostgreSQL database for the settings, the password comes from the GitHub secret DB_PASSWORD
+    smart_home_db_user: "{{ lookup('env', 'DB_USER') | default('luca', true) }}"
+    smart_home_db_name: "{{ lookup('env', 'DB_NAME') | default('smarthome', true) }}"
+    smart_home_db_password: "{{ lookup('env', 'DB_PASSWORD') }}"
   tasks:
+    - name: Check that the database password is set
+      assert:
+        that: smart_home_db_password | length > 0
+        fail_msg: "DB_PASSWORD ist nicht gesetzt (GitHub-Secret DB_PASSWORD anlegen)"
+      no_log: true
+
     - name: Ensure build-essential and node are installed
       apt:
         name:
@@ -49,7 +59,26 @@
       register: smart_home_make
       changed_when: "'is up to date' not in smart_home_make.stdout"
 
+    - name: Install Node dependencies
+      command: npm ci --omit=dev
+      args:
+        chdir: "{{ smart_home_dir }}/Node"
+      become_user: "{{ ansible_user }}"
+
     ################ Start the Node server ################
+    # only readable by root, because it contains the database password
+    - name: Write database connection for the Node server
+      copy:
+        dest: "/etc/{{ smart_home_service }}.env"
+        mode: "0600"
+        content: |
+          PGHOST=localhost
+          PGPORT=5432
+          PGUSER={{ smart_home_db_user }}
+          PGDATABASE={{ smart_home_db_name }}
+          PGPASSWORD={{ smart_home_db_password }}
+      no_log: true
+
     - name: Install systemd service for the Node server
       copy:
         dest: "/etc/systemd/system/{{ smart_home_service }}.service"
@@ -57,7 +86,8 @@
         content: |
           [Unit]
           Description=Smart Home Webserver
-          After=network.target
+          After=network.target postgresql.service
+          Wants=postgresql.service
 
           [Service]
           Type=simple
@@ -65,6 +95,7 @@
           WorkingDirectory={{ smart_home_dir }}/Node
           ExecStart=/usr/bin/env node {{ smart_home_dir }}/Node/server.js
           Environment=PORT={{ smart_home_port }}
+          EnvironmentFile=/etc/{{ smart_home_service }}.env
           Restart=on-failure
           RestartSec=5
 

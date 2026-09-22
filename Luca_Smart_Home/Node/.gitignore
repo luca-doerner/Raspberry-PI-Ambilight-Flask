@@ -1,3 +1,1 @@
-# settings saved by server.js, they belong to the device and not into git
-settings.json
-settings.json.tmp
+node_modules/
