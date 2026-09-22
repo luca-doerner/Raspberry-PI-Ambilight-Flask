@@ -161,9 +161,41 @@ function settingInput(setting, id, { onInput = () => {}, onChange = () => {} }) 
         }
         case "color": {
             const input = el("input", { type: "color", id, value: setting.value });
-            input.addEventListener("input", onInput);
+            // der Hex-Code daneben zeigt die Farbe und kann auch eingetippt werden
+            const hex = el("input", {
+                type: "text", class: "color-hex", value: setting.value, maxlength: 7, size: 7,
+                spellcheck: "false", autocapitalize: "none",
+                "aria-label": `${setting.label} als Hexadezimalcode`,
+            });
+
+            input.addEventListener("input", () => {
+                hex.value = input.value;
+                onInput();
+            });
             input.addEventListener("change", onChange);
-            return { node: input, read: () => input.value, write: (value) => { input.value = value; }, input };
+            hex.addEventListener("change", () => {
+                // "ff8800" und "#FF8800" sind auch in Ordnung
+                const text = hex.value.trim().replace(/^#?/, "#").toLowerCase();
+                if (!/^#[0-9a-f]{6}$/.test(text)) {
+                    hex.value = input.value;   // ungültig: zurück auf die aktuelle Farbe
+                    return;
+                }
+                hex.value = text;
+                if (text !== input.value) {
+                    input.value = text;
+                    onChange();
+                }
+            });
+
+            return {
+                node: el("div", { class: "color-control" }, input, hex),
+                read: () => input.value,
+                write: (value) => {
+                    input.value = value;
+                    hex.value = value;
+                },
+                input,
+            };
         }
         default: {   // "text"
             const input = el("input", { type: "text", id, maxlength: 1000, value: setting.value });

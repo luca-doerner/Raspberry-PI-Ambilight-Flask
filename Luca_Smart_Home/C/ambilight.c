@@ -61,6 +61,8 @@ int black_grid_w = 9, black_grid_h = 37;
 
 // Feature Variablen
 double brightness = 0.7, smooth_ratio = 0.85, dark_gamma = 0.2;
+// Stärke der Farbkanäle, 1.0 = unverändert (die Seite schickt Prozent)
+double strength_red = 1.0, strength_green = 1.0, strength_blue = 1.0;
 int resize_size = 18, distance_left = 1, distance_top = 1, distance_right = 1, distance_bottom = 1;
 
 // Namen der Einstellungen, Reihenfolge passt zu OPT_SETTING_BASE (siehe main)
@@ -68,6 +70,7 @@ int resize_size = 18, distance_left = 1, distance_top = 1, distance_right = 1, d
 static const char *SETTING_NAMES[] = {
     "brightness", "smooth_ratio", "dark_gamma", "resize_size",
     "distance_left", "distance_top", "distance_right", "distance_bottom",
+    "strength_red", "strength_green", "strength_blue",
 };
 #define SETTING_COUNT ((int)(sizeof SETTING_NAMES / sizeof *SETTING_NAMES))
 
@@ -122,6 +125,12 @@ static int set_setting(const char *name, int value) {
         smooth_ratio = value / 100.0;
     else if (strcmp(name, "dark_gamma") == 0 && value >= 0 && value <= 100)
         dark_gamma = value / 100.0;
+    else if (strcmp(name, "strength_red") == 0 && value >= 0 && value <= 100)
+        strength_red = value / 100.0;
+    else if (strcmp(name, "strength_green") == 0 && value >= 0 && value <= 100)
+        strength_green = value / 100.0;
+    else if (strcmp(name, "strength_blue") == 0 && value >= 0 && value <= 100)
+        strength_blue = value / 100.0;
     else if (strcmp(name, "resize_size") == 0 && value >= 1)
         resize_size = value;
     else if (strcmp(name, "distance_left") == 0 && value >= 0)
@@ -366,9 +375,10 @@ static void get_smooth_color(ws2811_led_t *leds, rgb_t new_pixels[], rgb_t old_p
         rgb_t c = new_pixels[i];
         rgb_t o = old_pixels[i];
         double factor = pow((c.r + c.g + c.b) / 3.0 / 255.0, dark_gamma) * brightness;
-        uint8_t r = clamp_u8((int)lrint(o.r * smooth_ratio + c.r * factor * (1 - smooth_ratio)));
-        uint8_t g = clamp_u8((int)lrint(o.g * smooth_ratio + c.g * factor * (1 - smooth_ratio)));
-        uint8_t b = clamp_u8((int)lrint(o.b * smooth_ratio + c.b * factor * (1 - smooth_ratio)));
+        // strength_*: dämpft einzelne Farbkanäle, z. B. wenn der Streifen zu blau wirkt
+        uint8_t r = clamp_u8((int)lrint(o.r * smooth_ratio + c.r * factor * strength_red * (1 - smooth_ratio)));
+        uint8_t g = clamp_u8((int)lrint(o.g * smooth_ratio + c.g * factor * strength_green * (1 - smooth_ratio)));
+        uint8_t b = clamp_u8((int)lrint(o.b * smooth_ratio + c.b * factor * strength_blue * (1 - smooth_ratio)));
         old_pixels[i] = (rgb_t){ r, g, b };
         leds[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
     }

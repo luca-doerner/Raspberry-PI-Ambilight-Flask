@@ -666,6 +666,21 @@ code {
     color: var(--muted);
 }
 
+/* Farbwähler mit dem Hex-Code daneben */
+.color-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.setting-row .color-hex {
+    width: 9ch;
+    max-width: none;
+    padding: 6px 8px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    text-transform: lowercase;
+}
+
 .setting-row input[type="number"],
 .setting-row input[type="text"],
 .setting-row select {

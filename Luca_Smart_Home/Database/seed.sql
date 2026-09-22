@@ -48,3 +48,18 @@ CROSS JOIN (VALUES
 ) AS d (name, label, type, default_value, min, max, unit, section, sort_order)
 WHERE f.type = 'ambilight'
   AND NOT EXISTS (SELECT 1 FROM setting_definitions s WHERE s.feature_id = f.id);
+
+-- Settings that came later: they are added to every ambilight feature that does not have them
+-- yet, also in databases that already had the settings above. A setting that was deleted on
+-- purpose comes back with the next deploy, so delete the feature instead if you do not want it.
+INSERT INTO setting_definitions
+    (feature_id, name, label, type, default_value, min, max, step, unit, section, sort_order)
+SELECT f.id, d.name, d.label, 'range', d.default_value, 0, 100, 1, '%', 'Farbstärke', d.sort_order
+FROM features f
+CROSS JOIN (VALUES
+    ('strength_red',   'Rot',  '100'::jsonb, 110),
+    ('strength_green', 'Grün', '100',        120),
+    ('strength_blue',  'Blau', '100',        130)
+) AS d (name, label, default_value, sort_order)
+WHERE f.type = 'ambilight'
+  AND NOT EXISTS (SELECT 1 FROM setting_definitions s WHERE s.feature_id = f.id AND s.name = d.name);

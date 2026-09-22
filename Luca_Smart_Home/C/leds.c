@@ -63,6 +63,7 @@ led_config_t load_config(int argc, char *argv[]) {
     opterr = 0;
     int opt;
     while ((opt = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
+        printf("opt: %d, optarg: %s\n", opt, optarg);
         switch (opt) {
             case OPT_LED_COUNT_LEFT:
                 config.led_count_left = atoi(optarg);
