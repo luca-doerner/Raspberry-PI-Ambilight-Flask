@@ -191,8 +191,8 @@ function renderRoomsPage({ rooms, pinned }) {
         "Noch keine Zimmer angelegt."));
 }
 
-async function renderRoomPage(id) {
-    const room = await api(`/api/rooms/${id}`);
+// room: from /api/rooms/:id
+function renderRoomPage(room) {
     document.title = `${room.name} · Smart Home`;
     showPage(
         breadcrumb([{ label: "Zimmer", href: "/rooms" }, { label: room.name }]),
@@ -213,13 +213,23 @@ function selectedFeature(features) {
         ?? features[0];
 }
 
-// services have a dot: green = started
-function featureTabs(device, selected) {
+// services have a dot: green = started; a click shows the feature without loading the page again
+// (onSelect), ctrl / middle click still opens the link in a new tab
+function featureTabs(device, selected, onSelect) {
     return el("nav", { class: "tabs", "aria-label": "Features" },
         device.features.map((f) => el("a", {
             class: "tab", href: `/devices/${device.id}?feature=${f.id}`,
             "aria-current": f.id === selected.id ? "page" : null,
             title: f.kind === "service" ? `${f.name}: ${f.active ? "gestartet" : "gestoppt"}` : f.name,
+            onclick(event) {
+                if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+                    return;
+                event.preventDefault();
+                if (f.id === selected.id)
+                    return;
+                history.pushState(null, "", this.href);
+                onSelect(f.id);
+            },
         },
         f.kind === "service" ? el("span", { class: `dot${f.active ? " on" : ""}`, "aria-hidden": "true" }) : null,
         f.name)));
@@ -252,8 +262,8 @@ function pinButton(device, errors) {
     return button;
 }
 
-async function renderDevicePage(id) {
-    let device = await api(`/api/devices/${id}`);
+// device: from /api/devices/:id
+async function renderDevicePage(device) {
     document.title = `${device.name} · Smart Home`;
     const parent = pathLink(device.parent);
 
@@ -285,31 +295,59 @@ async function renderDevicePage(id) {
         return;
     }
 
-    const selected = selectedFeature(device.features);
-    tabsSlot.replaceChildren(featureTabs(device, selected));
+    let selected = selectedFeature(device.features);
+    let cleanup = () => {};
+    const showTabs = () => tabsSlot.replaceChildren(featureTabs(device, selected, showFeature));
 
     // after start / stop, other exclusive services may have been stopped: update the dots
     async function onFeaturesChanged() {
-        device = await api(`/api/devices/${id}`);
-        tabsSlot.replaceChildren(featureTabs(device, selected));
+        device = await api(`/api/devices/${device.id}`);
+        showTabs();
     }
 
-    const feature = await api(`/api/features/${selected.id}`);
-    renderFeature(panel, feature, { onFeaturesChanged });
+    // loads only the panel of the feature, the old panel stays (dimmed) until the new one is there
+    async function showFeature(featureId) {
+        selected = device.features.find((f) => f.id === featureId) ?? selected;
+        showTabs();
+        panel.classList.add("loading");
+        try {
+            const feature = await api(`/api/features/${selected.id}`);
+            if (feature.id !== selected.id)   // another tab was clicked in the meantime
+                return;
+            cleanup();
+            panel.replaceChildren();
+            cleanup = renderFeature(panel, feature, { onFeaturesChanged });
+            errors.show("feature", "");
+        } catch (err) {
+            errors.show("feature", `Feature konnte nicht geladen werden: ${err.message}`);
+        } finally {
+            panel.classList.remove("loading");
+        }
+    }
+
+    // back / forward between features of this device
+    window.addEventListener("popstate", () => showFeature(selectedFeature(device.features).id));
+    await showFeature(selected.id);
 }
 
 /*************** Start ************************************************************************/
 async function init() {
     setupMenu();
     try {
+        // the data of the page is loaded at the same time as the navigation
+        const pageData = route.page === "device" ? api(`/api/devices/${route.id}`)
+            : route.page === "room" ? api(`/api/rooms/${route.id}`)
+            : null;
+        pageData?.catch(() => {});   // the error is shown below, not as unhandled rejection
+
         const navigation = await api("/api/navigation");
         renderNavigation(navigation);
         if (route.page === "rooms")
             renderRoomsPage(navigation);
         else if (route.page === "room")
-            await renderRoomPage(route.id);
+            renderRoomPage(await pageData);
         else
-            await renderDevicePage(route.id);
+            await renderDevicePage(await pageData);
     } catch (err) {
         const errors = errorBox();
         errors.show("page", `Seite konnte nicht geladen werden: ${err.message}`);

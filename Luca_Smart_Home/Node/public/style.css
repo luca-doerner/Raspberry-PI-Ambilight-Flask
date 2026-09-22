@@ -414,6 +414,13 @@ code {
 }
 
 /*************** Feature Tabs *****************************************************************/
+/* old panel while the next feature is loaded */
+.feature-panel.loading {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 0.15s 0.1s;
+}
+
 .tabs {
     display: flex;
     gap: 4px;
