@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Smart Home</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <button id="menu-toggle" class="menu-toggle" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="Navigation öffnen">
+            <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <a class="brand" href="/rooms">Luca Smart Home</a>
+    </header>
+
+    <div class="layout">
+        <nav id="sidebar" class="sidebar" aria-label="Zimmer und Geräte"></nav>
+        <div id="backdrop" class="backdrop"></div>
+        <main id="main">
+            <p class="muted">Lade …</p>
+        </main>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+</body>
+</html>

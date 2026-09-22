@@ -55,17 +55,42 @@ CREATE OR REPLACE TRIGGER devices_no_cycle
     FOR EACH ROW EXECUTE FUNCTION devices_check_cycle();
 
 -- a function of a device, e.g. "ambilight" on the LEDs or later "hdmi_switch" on the TV
+--
+-- exclusive: of the exclusive features of a device only one can be active at the same time,
+--            e.g. the LEDs show either "ambilight" or "static_color";
+--            other features (e.g. "hdmi_switch") can always be used
+-- active:    the feature is switched on (the web page and the server remember it across restarts)
 CREATE TABLE IF NOT EXISTS features (
     id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     device_id  BIGINT NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
     type       TEXT NOT NULL,           -- what the software does with it, e.g. "ambilight"
     name       TEXT NOT NULL,           -- display name
     executable TEXT,                    -- program of the feature, relative to Luca_Smart_Home/ or absolute
+    exclusive  BOOLEAN NOT NULL DEFAULT false,
+    active     BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT features_unique_name UNIQUE (device_id, name)
 );
 
+-- databases created before exclusive/active existed: add the columns once,
+-- ambilight features become exclusive (later changes to exclusive are kept)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = 'features' AND column_name = 'exclusive'
+    ) THEN
+        ALTER TABLE features ADD COLUMN exclusive BOOLEAN NOT NULL DEFAULT false;
+        UPDATE features SET exclusive = true WHERE type = 'ambilight';
+    END IF;
+END
+$$;
+ALTER TABLE features ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT false;
+
 CREATE INDEX IF NOT EXISTS features_type_idx ON features (type);
+
+-- at most one active exclusive feature per device
+CREATE UNIQUE INDEX IF NOT EXISTS features_one_active_exclusive ON features (device_id) WHERE exclusive AND active;
 
 -- one setting of a feature, e.g. brightness = 70; JSONB so later features can also store text or booleans
 CREATE TABLE IF NOT EXISTS settings (

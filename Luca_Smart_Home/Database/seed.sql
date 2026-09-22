@@ -24,7 +24,7 @@ BEGIN
         ON CONFLICT ON CONSTRAINT devices_unique_name DO UPDATE SET type = EXCLUDED.type
         RETURNING id INTO v_leds_id;
 
-    INSERT INTO features (device_id, type, name, executable)
-        VALUES (v_leds_id, 'ambilight', 'Ambilight', 'C/ambilight');
+    INSERT INTO features (device_id, type, name, executable, exclusive)
+        VALUES (v_leds_id, 'ambilight', 'Ambilight', 'C/ambilight', true);
 END
 $$;
