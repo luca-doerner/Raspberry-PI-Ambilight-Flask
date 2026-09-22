@@ -90,6 +90,82 @@ h4 { font-size: 0.95rem; margin: 24px 0 12px; color: var(--muted); font-weight: 
     text-decoration: none;
 }
 
+.topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+.topbar-user .muted {
+    margin: 0;
+}
+
+.topbar-user .button {
+    padding: 6px 12px;
+}
+
+/*************** Login Page *******************************************************************/
+.login-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    max-width: none;
+    padding: 24px 16px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 28px;
+}
+
+.login-card h1 {
+    font-size: 1.4rem;
+}
+
+.login-card > .muted {
+    margin-bottom: 20px;
+}
+
+.login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.login-field input {
+    padding: 10px 12px;
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.login-field input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.login-button {
+    justify-content: center;
+    width: 100%;
+    padding: 10px 12px;
+}
+
+.login-hint {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.login-card .error {
+    margin: 0 0 16px;
+}
+
 .menu-toggle {
     display: none;
     padding: 6px;

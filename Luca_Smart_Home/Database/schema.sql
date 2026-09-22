@@ -177,6 +177,30 @@ CREATE TABLE IF NOT EXISTS settings (
     PRIMARY KEY (feature_id, name)
 );
 
+-- people who can log in to the web page, added with Node/user.js (there is no sign up page)
+CREATE TABLE IF NOT EXISTS users (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    username      TEXT NOT NULL CHECK (username ~ '^[A-Za-z0-9._-]{1,64}$'),
+    password_hash TEXT NOT NULL,      -- scrypt$N$r$p$salt$hash, never the password itself
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- "Luca" and "luca" are the same user
+CREATE UNIQUE INDEX IF NOT EXISTS users_username_idx ON users (lower(username));
+
+-- logged in browsers: the session cookie holds a random token, only its SHA-256 hash is stored,
+-- so the database alone is not enough to take over a session
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash   TEXT PRIMARY KEY,
+    user_id      BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at   TIMESTAMPTZ NOT NULL,
+    user_agent   TEXT
+);
+
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id);
+
 -- every device with the room it is in (also through parent devices) and its path,
 -- e.g. "Wohnzimmer / Fernseher / Ambilight LEDs"
 CREATE OR REPLACE VIEW devices_with_room AS

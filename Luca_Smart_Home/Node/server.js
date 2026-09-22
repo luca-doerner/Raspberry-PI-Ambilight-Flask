@@ -3,12 +3,15 @@
  *
  * - pages: /rooms, /rooms/:id, /devices/:id (one page, public/index.html + public/app.js)
  * - features and their settings come from the database, their programs run in features.js
+ * - everything except the login page needs a login (auth.js, users are added with user.js)
  *
  * Run (needs root, because the ambilight program needs root for the LEDs):
  *   sudo node server.js
  *
  * Environment variables:
  *   PORT           web server port (default 5000)
+ *   HOST           address to listen on (default: all); 127.0.0.1 = only through the Cloudflare
+ *                  tunnel, so every connection is encrypted
  *   PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
  *                  PostgreSQL database (Database/schema.sql)
  *   UDP_HOST       receiver of the UDP messages of the services (default 127.0.0.1)
@@ -16,6 +19,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const auth = require("./auth");
 const db = require("./db");
 const HttpError = require("./http-error");
 const { log, streamLog } = require("./log");
@@ -24,6 +28,7 @@ const features = require("./features");
 
 /*************** Configuration ****************************************************************/
 const PORT = Number(process.env.PORT) || 5000;
+const HOST = process.env.HOST || undefined;
 const PUBLIC_DIR = path.join(__dirname, "public");
 
 const MIME_TYPES = {
@@ -41,7 +46,11 @@ function sendJson(res, status, data) {
     res.end(JSON.stringify(data));
 }
 
+// only JSON: other pages cannot send JSON to this server without its permission (CORS), so
+// together with the SameSite cookie they cannot do anything in the name of a logged in user
 function readJson(req) {
+    if (!(req.headers["content-type"] ?? "").startsWith("application/json"))
+        return Promise.reject(new HttpError(415, "Nur JSON wird angenommen"));
     return new Promise((resolve, reject) => {
         let body = "";
         req.on("data", (chunk) => {
@@ -75,7 +84,16 @@ async function serveFile(req, res, file) {
     }
 
     const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
-    const headers = { "Content-Type": MIME_TYPES[path.extname(file)], "Cache-Control": "no-cache", ETag: etag };
+    const headers = {
+        "Content-Type": MIME_TYPES[path.extname(file)],
+        "Cache-Control": "no-cache",
+        ETag: etag,
+        // no embedding in other pages (clickjacking), no guessing of file types
+        "X-Frame-Options": "DENY",
+        "Content-Security-Policy": "frame-ancestors 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "same-origin",
+    };
     if (req.headers["if-none-match"] === etag) {
         res.writeHead(304, headers);
         return res.end();
@@ -104,6 +122,15 @@ async function featureState(id) {
 /*************** Routes ***********************************************************************/
 // [method, path pattern, handler(req, res, ...pattern groups)]
 const ROUTES = [
+    // login
+    ["GET", /^\/login$/, (req, res) => req.user ? redirect(res, "/rooms") : serveFile(req, res, "login.html")],
+    ["POST", /^\/api\/login$/, async (req, res) => sendJson(res, 200, await auth.login(req, res, await readJson(req)))],
+    ["POST", /^\/api\/logout$/, async (req, res) => {
+        await auth.logout(req, res);
+        sendJson(res, 200, {});
+    }],
+    ["GET", /^\/api\/me$/, (req, res) => sendJson(res, 200, { username: req.user.username })],
+
     // pages (the page itself loads its data from the API)
     ["GET", /^\/$/, (req, res) => redirect(res, "/rooms")],
     ["GET", /^\/(rooms|rooms\/\d+|devices\/\d+)$/, (req, res) => serveFile(req, res, "index.html")],
@@ -157,9 +184,25 @@ const ROUTES = [
     ["GET", /^\/api\/log$/, (req, res) => streamLog(req, res)],
 ];
 
+// what can be opened without login: the login page and what it needs
+const PUBLIC = [
+    ["GET", /^\/login$/],
+    ["POST", /^\/api\/login$/],
+    ["POST", /^\/api\/logout$/],
+    ["GET", /^\/(login\.js|style\.css)$/],
+];
+
 async function handle(req, res) {
     const url = new URL(req.url, "http://localhost");
     try {
+        req.user = await auth.userFromRequest(req, res);
+        const isPublic = PUBLIC.some(([method, pattern]) => req.method === method && pattern.test(url.pathname));
+        if (!req.user && !isPublic) {
+            if (url.pathname.startsWith("/api/"))
+                throw new HttpError(401, "Nicht angemeldet");
+            return redirect(res, `/login?next=${encodeURIComponent(url.pathname + url.search)}`);
+        }
+
         for (const [method, pattern, handler] of ROUTES) {
             const match = req.method === method && url.pathname.match(pattern);
             if (match)
@@ -180,7 +223,7 @@ async function handle(req, res) {
 features.init();
 
 const server = http.createServer(handle);
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
     log(`Webserver läuft auf http://localhost:${PORT}`);
 });
 

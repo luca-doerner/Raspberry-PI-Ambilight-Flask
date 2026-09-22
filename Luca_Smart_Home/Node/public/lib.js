@@ -8,6 +8,11 @@ export async function api(url, body) {
         body: JSON.stringify(body),
     };
     const res = await fetch(url, options);
+    // the session ran out or was ended: log in again and come back to this page
+    if (res.status === 401) {
+        location.assign(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
+        throw new Error("Nicht angemeldet");
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok)
         throw new Error(data.error || res.statusText);

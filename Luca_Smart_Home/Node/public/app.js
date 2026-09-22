@@ -139,6 +139,19 @@ function setupMenu() {
     document.getElementById("backdrop").addEventListener("click", () => setOpen(false));
 }
 
+// name of the logged in user and the logout button in the top bar
+async function setupUser() {
+    document.getElementById("logout").addEventListener("click", async () => {
+        try {
+            await api("/api/logout", {});
+        } finally {
+            location.assign("/login");
+        }
+    });
+    const { username } = await api("/api/me");
+    document.getElementById("username").textContent = username;
+}
+
 /*************** Page Parts *******************************************************************/
 // replaces the content of the page, empty parts (null) are left out
 function showPage(...parts) {
@@ -348,6 +361,7 @@ async function renderDevicePage(device) {
 /*************** Start ************************************************************************/
 async function init() {
     setupMenu();
+    setupUser().catch(() => {});
     try {
         // the data of the page is loaded at the same time as the navigation
         const pageData = route.page === "device" ? api(`/api/devices/${route.id}`)

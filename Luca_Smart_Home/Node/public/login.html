@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Anmelden · Smart Home</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="login-page">
+    <main class="login-main">
+        <form id="login-form" class="card login-card" novalidate>
+            <h1>Luca Smart Home</h1>
+            <p class="muted">Bitte melde dich an.</p>
+
+            <div class="login-field">
+                <label for="username">Benutzername</label>
+                <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+            </div>
+            <div class="login-field">
+                <label for="password">Passwort</label>
+                <input id="password" name="password" type="password" autocomplete="current-password" required>
+            </div>
+
+            <p id="login-error" class="error" role="alert" hidden></p>
+            <button id="login-button" class="button primary login-button" type="submit">Anmelden</button>
+            <p class="muted login-hint">Du bleibst auf diesem Gerät 30 Tage angemeldet.</p>
+        </form>
+    </main>
+    <script type="module" src="/login.js"></script>
+</body>
+</html>
