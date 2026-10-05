@@ -3,7 +3,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <signal.h>
 #include "leds.h"      // eigene Header mit "…", System-Header mit <…>
+
+volatile sig_atomic_t running = 1;
 
 int leds_init(ws2811_t *strip, int led_count, int led_pin, int led_dma, int brightness) {
     *strip = (ws2811_t){
@@ -63,7 +66,6 @@ led_config_t load_config(int argc, char *argv[]) {
     opterr = 0;
     int opt;
     while ((opt = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
-        printf("opt: %d, optarg: %s\n", opt, optarg);
         switch (opt) {
             case OPT_LED_COUNT_LEFT:
                 config.led_count_left = atoi(optarg);
@@ -93,4 +95,62 @@ led_config_t load_config(int argc, char *argv[]) {
     optind = 1;
 
     return config;
+}
+
+// the feature settings from the command line (--brightness=70 ...), the device settings are
+// already read by load_config; unknown settings of other features are ignored
+void load_settings(int argc, char *argv[], int setting_count, const char *setting_names[], int (*set_setting)(const char *name, const char *value)) {
+    struct option options[setting_count + 1];
+    for (int i = 0; i < setting_count; i++)
+        options[i] = (struct option){ setting_names[i], required_argument, 0, OPT_SETTING_BASE + i };
+    options[setting_count] = (struct option){ 0, 0, 0, 0 };
+
+    opterr = 0;
+    int opt;
+    while ((opt = getopt_long(argc, argv, "", options, NULL)) != -1) {
+        int index = opt - OPT_SETTING_BASE;
+        if (index >= 0 && index < setting_count && !set_setting(setting_names[index], optarg))
+            fprintf(stderr, "Ungültiger Wert für %s: %s\n", setting_names[index], optarg);
+    }
+    optind = 1;   // damit weitere Durchläufe wieder von vorn anfangen
+}
+
+void init_socket(int *s) {
+    *s = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(UDP_PORT),
+        .sin_addr.s_addr = htonl(INADDR_LOOPBACK)
+    };
+    if (*s < 0 || bind(*s, (struct sockaddr *)&addr, sizeof addr) < 0)
+        fprintf(stderr, "UDP-Port %d nicht verfügbar, Einstellungen kommen nur beim Start an\n", UDP_PORT);
+}
+
+void poll_settings(int *s, int (*set_setting)(const char *name, const char *value)) {
+    ssize_t n;
+    char sock_buf[64];
+    while ((n = recv(*s, sock_buf, sizeof sock_buf - 1, 0)) > 0) {
+        sock_buf[n] = '\0';
+        char name[32];
+        char value[32];
+        if (sscanf(sock_buf, "%31[a-z_]: %31s", name, value) == 2 && set_setting(name, value))
+            printf("Einstellung übernommen: %s = %s\n", name, value);
+        else
+            printf("Unbekannte oder ungültige Einstellung: %s\n", sock_buf);
+    }
+}
+
+void on_signal(int sig) {
+    (void)sig;
+    running = 0;
+}
+
+void init_signals(void) {
+    struct sigaction sa = { .sa_handler = on_signal };
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+}
+
+int get_running(void) {
+    return running;
 }

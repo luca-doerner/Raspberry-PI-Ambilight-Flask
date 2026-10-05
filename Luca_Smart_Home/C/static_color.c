@@ -7,60 +7,50 @@
  *
  * Bauen: make
  */
-#include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "leds.h"
 
-// eigene Optionen, andere Zahlen als die in leds.h (OPT_LED_* ab 1001)
-#define OPT_POWER      2001
-#define OPT_COLOR      2002
-#define OPT_BRIGHTNESS 2003
+static const char *power = "on";
+static rgb_t color = { 255, 255, 255 };   // weiß, falls keine Farbe kommt
+static int brightness = 255;
+
+static const char *SETTING_NAMES[] = {
+    "power", "color", "brightness"
+};
+
+#define SETTING_COUNT ((int)(sizeof SETTING_NAMES / sizeof *SETTING_NAMES))
+
+// nimmt eine Einstellung an, 0 = unbekannt oder ungültig
+static int set_setting(const char *name, const char *value) {
+    if (strcmp(name, "power") == 0) {
+        if (strcmp(value, "on") != 0 && strcmp(value, "off") != 0)
+            return 0;
+        power = strcmp(value, "on") == 0 ? "on" : "off";
+    } else if (strcmp(name, "color") == 0) {
+        // %2hhx: zwei Hex-Ziffern in ein uint8_t, "#ff8800"
+        if (sscanf(value, "#%2hhx%2hhx%2hhx", &color.r, &color.g, &color.b) != 3)
+            return 0;
+    } else if (strcmp(name, "brightness") == 0) {
+        int number = atoi(value);
+        if (number < 0 || number > 255)
+            return 0;
+        brightness = number;
+    } else {
+        return 0;
+    }
+    return 1;
+}
 
 int main(int argc, char *argv[]) {
-    // Geräte-Einstellungen (Anzahl LEDs, Pin, DMA) aus der Kommandozeile
+    // Geräte-Einstellungen (Anzahl LEDs, Pin, DMA) und danach die eigenen Einstellungen
     led_config_t config = load_config(argc, argv);
-
-    const char *power = "on";
-    unsigned red = 255, green = 255, blue = 255;   // weiß, falls keine Farbe kommt
-    int brightness = 255;
-
-    static struct option long_options[] = {
-        {"power", required_argument, 0, OPT_POWER},
-        {"color", required_argument, 0, OPT_COLOR},
-        {"brightness", required_argument, 0, OPT_BRIGHTNESS},
-        {0, 0, 0, 0}
-    };
-
-    opterr = 0;   // unbekannte Optionen nicht melden
-    int opt;
-    while ((opt = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
-        switch (opt) {
-            case OPT_POWER:
-                power = optarg;
-                break;
-            case OPT_COLOR:
-                if (sscanf(optarg, "#%2x%2x%2x", &red, &green, &blue) != 3) {
-                    fprintf(stderr, "Ungültige Farbe: %s\n", optarg);
-                    return EXIT_FAILURE;
-                }
-                break;
-            case OPT_BRIGHTNESS:
-                brightness = atoi(optarg);
-                break;
-            default:
-                break;   // Einstellung eines anderen Features
-        }
-    }
+    load_settings(argc, argv, SETTING_COUNT, SETTING_NAMES, set_setting);
 
     if (config.led_count < 1) {
         fprintf(stderr, "Keine LEDs: led_count_left/top/right/bottom angeben\n");
-        return EXIT_FAILURE;
-    }
-    if (brightness < 0 || brightness > 255) {
-        fprintf(stderr, "brightness muss zwischen 0 und 255 liegen\n");
         return EXIT_FAILURE;
     }
 
@@ -71,12 +61,12 @@ int main(int argc, char *argv[]) {
     // "off" heißt schwarz, ein echtes Aus kennen WS2812-LEDs nicht
     int on = strcmp(power, "on") == 0;
     if (on)
-        leds_fill(&strip, red, green, blue);
+        leds_fill(&strip, color.r, color.g, color.b);
     else
         leds_off(&strip);
     if (on)
         printf("%d LEDs auf #%02x%02x%02x gesetzt (Helligkeit %d)\n",
-               config.led_count, red, green, blue, brightness);
+               config.led_count, color.r, color.g, color.b, brightness);
     else
         printf("%d LEDs ausgeschaltet\n", config.led_count);
 

@@ -2,15 +2,15 @@ CC     ?= gcc
 CFLAGS ?= -O2 -Wall -Wextra
 LDLIBS  = -lws2811 -lm
 
-all: ambilight static_color
+PROGRAMS = ambilight static_color color_flow
 
-ambilight: ambilight.c leds.c leds.h
-	$(CC) $(CFLAGS) -o $@ ambilight.c leds.c $(LDLIBS)
+all: $(PROGRAMS)
 
-static_color: static_color.c leds.c leds.h
-	$(CC) $(CFLAGS) -o $@ static_color.c leds.c $(LDLIBS)
+# jedes Programm besteht aus seiner eigenen Datei und dem gemeinsamen leds.c
+$(PROGRAMS): %: %.c leds.c leds.h
+	$(CC) $(CFLAGS) -o $@ $*.c leds.c $(LDLIBS)
 
 clean:
-	rm -f ambilight static_color
+	rm -f $(PROGRAMS)
 
 .PHONY: all clean

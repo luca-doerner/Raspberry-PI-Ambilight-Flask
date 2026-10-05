@@ -13,8 +13,15 @@
 #define OPT_LED_PIN             1005
 #define OPT_LED_DMA             1006
 
+#define OPT_SETTING_BASE 3001
+
+#define UDP_PORT         9000           // the server sends the live settings here
+
+#include <signal.h>          // sig_atomic_t für running
 #include <stdint.h>
 #include <ws2811/ws2811.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 typedef struct {
     int led_count;
@@ -25,6 +32,12 @@ typedef struct {
     int led_pin; 
     int led_dma;
 } led_config_t;
+
+typedef struct { uint8_t r, g, b; } rgb_t;
+
+typedef int (*setting_callback_t)(const char *name, const char *value);
+
+extern volatile sig_atomic_t running;
 
 // richtet den Streifen ein, gibt 0 zurück bei Erfolg
 int leds_init(ws2811_t *strip, int led_count, int led_pin, int led_dma, int brightness);
@@ -37,5 +50,18 @@ void leds_off(ws2811_t *strip);
 
 // lädt die komplette gerätekonfig
 led_config_t load_config(int argc, char *argv[]);
+
+void load_settings(int argc, char *argv[], int setting_count, const char *setting_names[], setting_callback_t callback);
+
+// öffnet den UDP-Port für die Live-Einstellungen und schreibt den Socket nach *s
+void init_socket(int *s);
+
+void poll_settings(int *s, setting_callback_t callback);
+
+void on_signal(int sig);
+
+void init_signals(void);
+
+int get_running(void);
 
 #endif
