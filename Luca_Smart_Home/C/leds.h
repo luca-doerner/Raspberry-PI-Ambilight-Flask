@@ -17,6 +17,9 @@
 
 #define UDP_PORT         9000           // the server sends the live settings here
 
+// längster Wert, den eine Einstellung haben darf (eine Farbliste braucht am meisten Platz)
+#define SETTING_VALUE_MAX 256
+
 #include <signal.h>          // sig_atomic_t für running
 #include <stdint.h>
 #include <ws2811/ws2811.h>

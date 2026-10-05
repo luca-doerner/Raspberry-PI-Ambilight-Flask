@@ -722,6 +722,60 @@ code {
     justify-self: start;
 }
 
+/* color_list: Farben in ihrer Reihenfolge */
+.color-list {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+}
+
+.color-list-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.color-list-number {
+    width: 2.2ch;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.icon-button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font: inherit;
+    line-height: 1;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.icon-button:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.icon-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.icon-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* bei vielen Farben steht die Liste unter der Beschriftung */
+.setting-row:has(.color-list-control) {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+}
+
 /* screen: four number fields around a screen */
 .screen-layout {
     display: grid;

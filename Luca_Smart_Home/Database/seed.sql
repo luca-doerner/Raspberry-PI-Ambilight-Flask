@@ -49,6 +49,37 @@ CROSS JOIN (VALUES
 WHERE f.type = 'ambilight'
   AND NOT EXISTS (SELECT 1 FROM setting_definitions s WHERE s.feature_id = f.id);
 
+-- Modus "color_flow": schiebt die Farben der Liste nacheinander vorne in den Streifen, sie
+-- wandern dann wie ein Lauflicht nach hinten (C/color_flow).
+-- Wird nur angelegt, solange es noch kein color_flow-Feature gibt, am selben Gerät wie ambilight.
+-- Exklusiv wie ambilight, dadurch läuft immer nur eines von beidem und beide können Port 9000 nutzen.
+DO $$
+DECLARE
+    v_device_id  BIGINT;
+    v_feature_id BIGINT;
+BEGIN
+    IF EXISTS (SELECT 1 FROM features WHERE type = 'color_flow') THEN
+        RETURN;
+    END IF;
+    SELECT device_id INTO v_device_id FROM features WHERE type = 'ambilight' ORDER BY id LIMIT 1;
+    IF v_device_id IS NULL THEN
+        RETURN;
+    END IF;
+
+    INSERT INTO features (device_id, type, name, kind, executable, udp_port, exclusive)
+        VALUES (v_device_id, 'color_flow', 'Color Flow', 'service', 'C/color_flow', 9000, true)
+        RETURNING id INTO v_feature_id;
+
+    INSERT INTO setting_definitions
+        (feature_id, name, label, type, default_value, min, max, step, unit, section, sort_order)
+    VALUES
+        (v_feature_id, 'colors', 'Farben', 'color_list',
+         '["#ff0000", "#00ff00", "#0000ff"]', 1, 20, NULL, NULL, NULL, 10),
+        (v_feature_id, 'speed', 'Schritt alle', 'number', '1000', 20, 60000, 10, 'ms', NULL, 20),
+        (v_feature_id, 'brightness', 'Helligkeit', 'range', '70', 0, 100, 1, '%', NULL, 30);
+END
+$$;
+
 -- Settings that came later: they are added to every ambilight feature that does not have them
 -- yet, also in databases that already had the settings above. A setting that was deleted on
 -- purpose comes back with the next deploy, so delete the feature instead if you do not want it.

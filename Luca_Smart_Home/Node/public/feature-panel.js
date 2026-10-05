@@ -127,6 +127,97 @@ function settingInput(setting, id, { onInput = () => {}, onChange = () => {} }) 
                 input: group,
             };
         }
+        case "color_list": {
+            // Liste von Farben in ihrer Reihenfolge; das Programm bekommt sie als "#ff0000,#00ff00"
+            let colors = [...setting.value];
+            const list = el("ul", { class: "color-list" });
+            const addButton = el("button", { type: "button", class: "button" }, "+ Farbe");
+
+            // meldet dem Formular eine Änderung und baut die Liste neu auf
+            const changed = () => {
+                show();
+                group.dispatchEvent(new Event("input", { bubbles: true }));
+                onChange();
+            };
+
+            function show() {
+                list.replaceChildren(...colors.map((color, index) => {
+                    const picker = el("input", {
+                        type: "color", value: color, "aria-label": `Farbe ${index + 1}`,
+                    });
+                    const hex = el("input", {
+                        type: "text", class: "color-hex", value: color, maxlength: 7, size: 7,
+                        spellcheck: "false", autocapitalize: "none",
+                        "aria-label": `Farbe ${index + 1} als Hexadezimalcode`,
+                    });
+                    picker.addEventListener("change", () => {
+                        colors[index] = picker.value;
+                        changed();
+                    });
+                    hex.addEventListener("change", () => {
+                        const text = hex.value.trim().replace(/^#?/, "#").toLowerCase();
+                        if (!/^#[0-9a-f]{6}$/.test(text)) {
+                            hex.value = colors[index];   // ungültig: zurück auf die aktuelle Farbe
+                            return;
+                        }
+                        colors[index] = text;
+                        changed();
+                    });
+
+                    const move = (to) => {
+                        [colors[index], colors[to]] = [colors[to], colors[index]];
+                        changed();
+                    };
+                    return el("li", { class: "color-list-row" },
+                        el("span", { class: "color-list-number" }, `${index + 1}.`),
+                        picker, hex,
+                        el("button", {
+                            type: "button", class: "icon-button", title: "nach oben",
+                            "aria-label": `Farbe ${index + 1} nach oben`,
+                            disabled: index === 0 || undefined,
+                            onclick: () => move(index - 1),
+                        }, "↑"),
+                        el("button", {
+                            type: "button", class: "icon-button", title: "nach unten",
+                            "aria-label": `Farbe ${index + 1} nach unten`,
+                            disabled: index === colors.length - 1 || undefined,
+                            onclick: () => move(index + 1),
+                        }, "↓"),
+                        el("button", {
+                            type: "button", class: "icon-button", title: "entfernen",
+                            "aria-label": `Farbe ${index + 1} entfernen`,
+                            onclick: () => {
+                                colors.splice(index, 1);
+                                changed();
+                            },
+                        }, "✕"));
+                }));
+                if (colors.length === 0)
+                    list.append(el("li", { class: "muted" }, "Noch keine Farbe."));
+                addButton.disabled = setting.max !== null && colors.length >= setting.max;
+            }
+
+            addButton.addEventListener("click", () => {
+                colors.push(colors.at(-1) ?? "#ffffff");
+                changed();
+            });
+
+            const group = el("div", { class: "color-list-control", id, role: "group", "aria-labelledby": `${id}-label` },
+                list, addButton);
+            group.checkValidity = () => true;
+            group.reportValidity = () => true;
+            show();
+
+            return {
+                node: group,
+                read: () => [...colors],
+                write: (value) => {
+                    colors = [...value];
+                    show();
+                },
+                input: group,
+            };
+        }
         case "screen": {
             // four numbers around a screen, e.g. the distance of the ambilight LEDs to the edges
             const sides = [["top", "Oben"], ["left", "Links"], ["right", "Rechts"], ["bottom", "Unten"]];

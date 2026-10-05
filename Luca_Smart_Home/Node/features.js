@@ -50,11 +50,14 @@ function formatValue(value) {
 }
 
 // the name / value pairs a setting stands for: normally one, a "screen" setting becomes four
-// (distance -> distance_top, distance_left, distance_right, distance_bottom)
+// (distance -> distance_top, distance_left, distance_right, distance_bottom) and a "color_list"
+// becomes one value with commas (colors -> "#ff0000,#00ff00")
 function settingPairs(definition, value) {
-    if (definition.type !== "screen")
-        return [[definition.name, value]];
-    return smarthome.SCREEN_SIDES.map((side) => [`${definition.name}_${side}`, value[side]]);
+    if (definition.type === "screen")
+        return smarthome.SCREEN_SIDES.map((side) => [`${definition.name}_${side}`, value[side]]);
+    if (definition.type === "color_list")
+        return [[definition.name, value.join(",")]];
+    return [[definition.name, value]];
 }
 
 // every start (service and oneshot): all device settings, then all feature settings (also those

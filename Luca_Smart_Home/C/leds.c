@@ -128,12 +128,13 @@ void init_socket(int *s) {
 
 void poll_settings(int *s, int (*set_setting)(const char *name, const char *value)) {
     ssize_t n;
-    char sock_buf[64];
+    // groß genug auch für lange Werte wie eine Farbliste mit 20 Farben
+    char sock_buf[SETTING_VALUE_MAX + 64];
     while ((n = recv(*s, sock_buf, sizeof sock_buf - 1, 0)) > 0) {
         sock_buf[n] = '\0';
         char name[32];
-        char value[32];
-        if (sscanf(sock_buf, "%31[a-z_]: %31s", name, value) == 2 && set_setting(name, value))
+        char value[SETTING_VALUE_MAX];
+        if (sscanf(sock_buf, "%31[a-z_]: %255s", name, value) == 2 && set_setting(name, value))
             printf("Einstellung übernommen: %s = %s\n", name, value);
         else
             printf("Unbekannte oder ungültige Einstellung: %s\n", sock_buf);

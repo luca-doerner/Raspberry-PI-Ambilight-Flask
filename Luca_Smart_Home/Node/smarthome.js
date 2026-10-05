@@ -176,6 +176,22 @@ function validateValue(definition, value) {
             if (typeof value !== "string" || !/^#[0-9a-f]{6}$/i.test(value))
                 fail("muss eine Farbe wie #ff8800 sein");
             return value.toLowerCase();
+        case "color_list": {
+            // mehrere Farben in ihrer Reihenfolge; min / max begrenzen die Anzahl
+            if (!Array.isArray(value))
+                fail("muss eine Liste von Farben sein");
+            const least = definition.min ?? 0;
+            const most = definition.max ?? 50;
+            if (value.length < least)
+                fail(`braucht mindestens ${least} Farbe(n)`);
+            if (value.length > most)
+                fail(`darf höchstens ${most} Farbe(n) haben`);
+            return value.map((color, index) => {
+                if (typeof color !== "string" || !/^#[0-9a-f]{6}$/i.test(color))
+                    fail(`Farbe ${index + 1} muss wie #ff8800 aussehen`);
+                return color.toLowerCase();
+            });
+        }
         default:
             return fail(`unbekannter Typ ${definition.type}`);
     }

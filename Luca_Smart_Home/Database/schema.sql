@@ -140,7 +140,9 @@ CREATE TABLE IF NOT EXISTS setting_definitions (
     name             TEXT NOT NULL CHECK (name ~ '^[a-z][a-z0-9_-]*$'),
     label            TEXT NOT NULL,     -- shown on the page, e.g. "Helligkeit"
     -- range: slider, number: number field, boolean: switch, text, select: list of options,
-    -- button_select: one button per option, color: #rrggbb, screen: four numbers around a screen
+    -- button_select: one button per option, color: #rrggbb, color_list: several colors in order
+    -- (["#ff0000", "#00ff00"], das Programm bekommt sie als --name=#ff0000,#00ff00),
+    -- screen: four numbers around a screen
     -- ({"top": 1, "left": 1, "right": 1, "bottom": 1}, the program gets them as --name_top=1 ...)
     -- (allowed types: see the constraint below)
     type             TEXT NOT NULL,
@@ -206,7 +208,8 @@ BEGIN
     FOREACH definitions IN ARRAY ARRAY['setting_definitions', 'device_setting_definitions'] LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', definitions, definitions || '_type_check');
         EXECUTE format($sql$ALTER TABLE %I ADD CONSTRAINT %I
-            CHECK (type IN ('range', 'number', 'boolean', 'text', 'select', 'button_select', 'color', 'screen'))$sql$,
+            CHECK (type IN ('range', 'number', 'boolean', 'text', 'select', 'button_select',
+                            'color', 'color_list', 'screen'))$sql$,
             definitions, definitions || '_type_check');
 
         -- COALESCE: without options jsonb_typeof is NULL and a CHECK lets NULL pass
@@ -216,9 +219,11 @@ BEGIN
             definitions, definitions || '_options_check');
 
         -- screen: the value has the four sides, e.g. {"top": 1, "left": 1, "right": 1, "bottom": 1}
+        -- color_list: the value is a list, e.g. ["#ff0000", "#00ff00"]
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', definitions, definitions || '_default_check');
         EXECUTE format($sql$ALTER TABLE %I ADD CONSTRAINT %I
-            CHECK (type <> 'screen' OR default_value ?& array['top', 'left', 'right', 'bottom'])$sql$,
+            CHECK ((type <> 'screen' OR default_value ?& array['top', 'left', 'right', 'bottom'])
+               AND (type <> 'color_list' OR jsonb_typeof(default_value) = 'array'))$sql$,
             definitions, definitions || '_default_check');
     END LOOP;
 END
